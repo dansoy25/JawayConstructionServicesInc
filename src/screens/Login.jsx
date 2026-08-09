@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 export default function Login() {
   const { signInWithPin, session } = useAuth()
   const nav = useNavigate()
-  const [companyCode, setCompanyCode] = useState('JAWAY-0026')
+  const [companyCode, setCompanyCode] = useState('')
   const [employeeId, setEmployeeId] = useState('')
   const [pin, setPin] = useState('')
   const [keep, setKeep] = useState(true)
@@ -58,6 +58,7 @@ export default function Login() {
         .ts-hand-s{transform-origin:50% 50%;animation:tsSpinFast 6s linear infinite}
         .ts-pulse{animation:tsPulse 3s ease-in-out infinite}
         .ts-wave span{display:inline-block;animation:tsWave 6s ease-in-out infinite}
+        .ts-login-input::placeholder{color:rgba(148,163,184,.55);font-weight:600;letter-spacing:1px}
         /* Desktop preview: center in a max-width column with rounded frame */
         @media (min-width: 769px) {
           .ts-login-root {
@@ -164,22 +165,25 @@ export default function Login() {
               </button>
             </div>
 
-            {/* Employee ID */}
+            {/* Company Code */}
             <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b', letterSpacing: .4 }}>EMPLOYEE ID</div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b', letterSpacing: .4 }}>COMPANY CODE</div>
               <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 10, border: '1.5px solid rgba(37,99,235,.25)', borderRadius: 10, padding: '9px 12px', background: 'rgba(255,255,255,.04)' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                 <input
                   value={companyCode}
                   onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
+                  placeholder="JAWAY-0026"
+                  autoCapitalize="characters" autoCorrect="off"
+                  className="ts-login-input"
                   style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#e2e8f0', fontSize: 13, fontWeight: 700, letterSpacing: 1, minWidth: 0 }}
                 />
               </div>
             </div>
 
-            {/* Username */}
+            {/* Employee ID */}
             <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b', letterSpacing: .4 }}>USERNAME</div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#64748b', letterSpacing: .4 }}>EMPLOYEE ID</div>
               <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 10, border: '1.5px solid rgba(37,99,235,.25)', borderRadius: 10, padding: '9px 12px', background: 'rgba(255,255,255,.04)' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
                 <input
@@ -187,6 +191,7 @@ export default function Login() {
                   onChange={(e) => setEmployeeId(e.target.value)}
                   placeholder="EMP-001"
                   autoCapitalize="none" autoCorrect="off"
+                  className="ts-login-input"
                   style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#e2e8f0', fontSize: 13, fontWeight: 600, minWidth: 0 }}
                 />
               </div>

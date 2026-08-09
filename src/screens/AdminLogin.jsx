@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 export default function AdminLogin() {
   const { signInWithPin, session } = useAuth()
   const nav = useNavigate()
-  const [companyCode, setCompanyCode] = useState('JAWAY-0026')
+  const [companyCode, setCompanyCode] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(true)
@@ -61,6 +61,7 @@ export default function AdminLogin() {
         .ts-pulse-d{animation:tsPulse 3s ease-in-out infinite}
         .ts-wave span{display:inline-block;animation:tsWave 6s ease-in-out infinite}
         .ts-input-d:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(37,99,235,.2)}
+        .ts-input-d::placeholder{color:rgba(148,163,184,.55);font-weight:600}
         .ts-btn-primary-d:hover{filter:brightness(1.1);transform:translateY(-1px);transition:.15s}
         .ts-sso-d:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15)}
         @media (max-width: 900px) {
@@ -193,7 +194,7 @@ export default function AdminLogin() {
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4, marginBottom: 6 }}>EMPLOYEE ID / USERNAME</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4, marginBottom: 6 }}>EMPLOYEE ID</div>
               <div style={{ position: 'relative' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 14, top: 15 }}><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
                 <input className="ts-input-d" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin"
