@@ -39,8 +39,8 @@ npm run dev
 
 | Role | Company Code | Username | Password | URL |
 |------|--------------|----------|----------|-----|
-| Admin | TINGSYNC-2000 | admin | Admin@123 | `/login` |
-| Employee | TINGSYNC-2000 | EMP-001 | 123456 | `/employee` |
+| Admin | JAWAY-0026 | admin | Admin@123 | `/login` |
+| Employee | JAWAY-0026 | EMP-001 | 123456 | `/employee` |
 
 ## Routes
 

@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 export default function Login() {
   const { signInWithPin, session } = useAuth()
   const nav = useNavigate()
-  const [companyCode, setCompanyCode] = useState('TINGSYNC-2000')
+  const [companyCode, setCompanyCode] = useState('JAWAY-0026')
   const [employeeId, setEmployeeId] = useState('')
   const [pin, setPin] = useState('')
   const [keep, setKeep] = useState(true)
