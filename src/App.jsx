@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -38,20 +39,40 @@ import AdminReports from './screens/admin/AdminReports'
 import AdminBackup from './screens/admin/AdminBackup'
 import AdminSettings from './screens/admin/AdminSettings'
 
-function Protected({ children, requireAdmin, requireEmployee }) {
+function Loading() {
+  return (
+    <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0b1220', color: '#94a3b8', fontFamily: "'Inter',system-ui,sans-serif", fontSize: 13, fontWeight: 600 }}>
+      Loading…
+    </div>
+  )
+}
+
+function useBrokenSessionCleanup() {
+  const { session, profile, loading, signOut } = useAuth()
+  useEffect(() => {
+    if (!loading && session && !profile) {
+      signOut()
+    }
+  }, [loading, session, profile, signOut])
+}
+
+function Protected({ children, requireAdmin }) {
   const { session, profile, loading } = useAuth()
-  if (loading) return <div style={{ padding: 40, textAlign: 'center' }}>Loading…</div>
+  useBrokenSessionCleanup()
+  if (loading) return <Loading />
   if (!session) return <Navigate to="/login" replace />
-  if (requireAdmin && profile && !profile.is_admin) return <Navigate to="/" replace />
-  if (requireEmployee && profile?.is_admin) return <Navigate to="/admin/dashboard" replace />
+  if (!profile) return <Loading />
+  if (requireAdmin && !profile.is_admin) return <Navigate to="/" replace />
   return children
 }
 
 function RoleGate() {
   const { session, profile, loading } = useAuth()
-  if (loading) return <div style={{ padding: 40, textAlign: 'center' }}>Loading…</div>
+  useBrokenSessionCleanup()
+  if (loading) return <Loading />
   if (!session) return <Navigate to="/login" replace />
-  if (profile?.is_admin) return <Navigate to="/admin/dashboard" replace />
+  if (!profile) return <Loading />
+  if (profile.is_admin) return <Navigate to="/admin/dashboard" replace />
   return <Shell />
 }
 

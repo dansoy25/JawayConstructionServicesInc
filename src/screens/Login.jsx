@@ -37,7 +37,10 @@ export default function Login() {
   return (
     <div style={{
       minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: '#070b14', padding: 20,
+      background: '#070b14',
+      paddingTop: 'max(env(safe-area-inset-top), 20px)',
+      paddingBottom: 'max(env(safe-area-inset-bottom), 20px)',
+      paddingLeft: 20, paddingRight: 20,
       fontFamily: "'Inter',system-ui,sans-serif",
     }}>
       <style>{`

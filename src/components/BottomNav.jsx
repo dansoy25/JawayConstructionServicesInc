@@ -32,7 +32,7 @@ export default function BottomNav() {
           ? '0 -14px 32px rgba(59,130,246,.18),0 -6px 20px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.04)'
           : '0 -8px 30px rgba(15,23,42,.08),inset 0 1px 0 rgba(255,255,255,.6),0 -1px 0 rgba(226,232,240,.6)',
         backdropFilter: 'blur(20px)',
-        padding: '10px 14px 22px',
+        padding: '10px 14px calc(22px + env(safe-area-inset-bottom))',
         display: 'flex', alignItems: 'center', zIndex: 40,
       }}
     >

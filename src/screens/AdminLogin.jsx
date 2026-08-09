@@ -65,7 +65,13 @@ export default function AdminLogin() {
         .ts-sso-d:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15)}
         @media (max-width: 900px) {
           .ts-admin-left { display: none !important; }
-          .ts-admin-right { flex: 1 !important; padding: 32px 20px !important; }
+          .ts-admin-right {
+            flex: 1 !important;
+            padding-top: max(env(safe-area-inset-top), 32px) !important;
+            padding-bottom: max(env(safe-area-inset-bottom), 32px) !important;
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+          }
         }
       `}</style>
 
