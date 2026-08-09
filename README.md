@@ -1,4 +1,6 @@
-# TingSync — Jaway Construction Services Inc.
+# Jaway Construction Services Inc. — Workforce Platform
+
+> Powered by **TingSync**
 
 Employee attendance + admin management PWA for **Jaway Construction Services Inc.**, built for the TingSync workforce platform.
 
