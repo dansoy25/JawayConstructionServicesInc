@@ -34,8 +34,17 @@ body {
   box-shadow: 0 30px 80px -20px rgba(0,0,0,.4);
   margin: 0 auto;
 }
-@media (max-width: 500px) {
-  .ios-frame { border-radius: 0; height: 100dvh; max-height: none; box-shadow: none; }
+/* On real phones: fill the whole viewport, no side gutters, no rounded corners */
+@media (max-width: 768px) {
+  .ios-frame {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0;
+  }
 }
 
 /* Buttons */
