@@ -122,26 +122,19 @@ function SitesPanel({ orgId }) {
       {sites.length === 0 ? (
         <div style={{ padding: 30, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>No worksites yet. Click <b>+ Add site</b> to create one.</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 14, padding: 14 }}>
+        <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {sites.map((s) => (
-            <div key={s.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,.04)' }}>
-              <MapView
-                center={[Number(s.lat), Number(s.lng)]}
-                radiusM={s.radius_m || 100}
-                siteName={s.name}
-                height={160}
-              />
-              <div style={{ padding: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>{s.name}</div>
-                    <div style={{ fontSize: 10, color: '#64748b', marginTop: 2, fontFamily: 'monospace' }}>
-                      {Number(s.lat).toFixed(5)}, {Number(s.lng).toFixed(5)} · {s.radius_m || 100}m
-                    </div>
-                  </div>
-                  <button onClick={() => setEditing(s)} style={{ ...btnGhost, padding: '6px 10px', fontSize: 11 }}>Edit</button>
+            <div key={s.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '12px 14px', background: '#fff', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: '#DBEAFE', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>{s.name}</div>
+                <div style={{ fontSize: 10, color: '#64748b', marginTop: 2, fontFamily: 'monospace' }}>
+                  {Number(s.lat).toFixed(5)}, {Number(s.lng).toFixed(5)} · {s.radius_m || 100}m radius
                 </div>
               </div>
+              <button onClick={() => setEditing(s)} style={{ ...btnGhost, padding: '6px 12px', fontSize: 11 }}>Edit</button>
             </div>
           ))}
         </div>
@@ -162,6 +155,37 @@ function SiteEditorModal({ site, orgId, onClose, onSaved }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
+  // Employee assignments
+  const [employees, setEmployees] = useState([])
+  const [assigned, setAssigned] = useState(new Set())
+  const [initialAssigned, setInitialAssigned] = useState(new Set())
+
+  useEffect(() => {
+    if (!orgId) return
+    supabase.from('profiles')
+      .select('id, full_name, employee_code, site_id, is_admin')
+      .eq('org_id', orgId)
+      .eq('is_admin', false)
+      .order('full_name')
+      .then(({ data }) => {
+        const rows = data || []
+        setEmployees(rows)
+        if (site) {
+          const preAssigned = new Set(rows.filter((p) => p.site_id === site.id).map((p) => p.id))
+          setAssigned(preAssigned)
+          setInitialAssigned(preAssigned)
+        }
+      })
+  }, [orgId, site?.id])
+
+  const toggleAssign = (id) => {
+    setAssigned((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
   const useMyLocation = () => {
     if (!navigator.geolocation) return setErr('Geolocation not supported by this browser.')
     navigator.geolocation.getCurrentPosition(
@@ -176,13 +200,28 @@ function SiteEditorModal({ site, orgId, onClose, onSaved }) {
     setBusy(true); setErr('')
     try {
       const payload = { name: name.trim(), lat: Number(lat), lng: Number(lng), radius_m: Number(radius) || 100 }
+      let siteId = site?.id
       if (isNew) {
-        const { error } = await supabase.from('sites').insert({ ...payload, org_id: orgId })
+        const { data, error } = await supabase.from('sites').insert({ ...payload, org_id: orgId }).select().single()
         if (error) throw error
+        siteId = data.id
       } else {
         const { error } = await supabase.from('sites').update(payload).eq('id', site.id)
         if (error) throw error
       }
+
+      // Apply employee assignment diffs
+      const toAssign = [...assigned].filter((id) => !initialAssigned.has(id))
+      const toUnassign = [...initialAssigned].filter((id) => !assigned.has(id))
+      if (toAssign.length) {
+        const { error } = await supabase.from('profiles').update({ site_id: siteId }).in('id', toAssign)
+        if (error) throw error
+      }
+      if (toUnassign.length) {
+        const { error } = await supabase.from('profiles').update({ site_id: null }).in('id', toUnassign)
+        if (error) throw error
+      }
+
       onSaved()
     } catch (e) { setErr(e.message || 'Save failed.') }
     setBusy(false)
@@ -221,6 +260,53 @@ function SiteEditorModal({ site, orgId, onClose, onSaved }) {
             <div>
               <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4, marginBottom: 4 }}>&nbsp;</div>
               <button type="button" onClick={useMyLocation} style={{ ...btnGhost, width: '100%', padding: '10px 12px', fontSize: 11 }}>📍 Use my location</button>
+            </div>
+          </div>
+
+          {/* Employee assignment */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4 }}>
+                ASSIGNED EMPLOYEES ({assigned.size} of {employees.length})
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button type="button" onClick={() => setAssigned(new Set(employees.map((e) => e.id)))} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Select all</button>
+                <span style={{ color: '#cbd5e1' }}>·</span>
+                <button type="button" onClick={() => setAssigned(new Set())} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Clear</button>
+              </div>
+            </div>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, maxHeight: 180, overflowY: 'auto', background: '#f8fafc' }}>
+              {employees.length === 0 ? (
+                <div style={{ padding: 20, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>No employees yet.</div>
+              ) : (
+                employees.map((emp) => {
+                  const isOn = assigned.has(emp.id)
+                  const conflictingSite = emp.site_id && emp.site_id !== site?.id
+                  return (
+                    <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderBottom: '1px solid #e2e8f0', cursor: 'pointer', background: isOn ? '#eff6ff' : 'transparent' }}>
+                      <input
+                        type="checkbox"
+                        checked={isOn}
+                        onChange={() => toggleAssign(emp.id)}
+                        style={{ width: 16, height: 16, cursor: 'pointer' }}
+                      />
+                      <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#dbeafe', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 9, flexShrink: 0 }}>
+                        {initials(emp.full_name)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{emp.full_name}</div>
+                        <div style={{ fontSize: 10, color: '#94a3b8', fontFamily: 'monospace' }}>
+                          {emp.employee_code}{conflictingSite && !isOn ? ' · assigned elsewhere' : ''}
+                        </div>
+                      </div>
+                    </label>
+                  )
+                })
+              )}
+            </div>
+            <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>
+              Employees you check will be able to clock in from this geofence.
+              Unchecking moves them off this site.
             </div>
           </div>
 
