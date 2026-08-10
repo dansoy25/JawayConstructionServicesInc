@@ -20,10 +20,25 @@ export default function Home() {
   useEffect(() => { refresh() }, [profile?.id])
 
   const onDuty = today?.clock_in && !today?.clock_out
+
+  // Parse the employee's schedule ("HH:MM-HH:MM") — falls back to 08:00-17:00
+  const schedule = parseSchedule(profile?.schedule)
+  const shiftHours = Math.max(0.5, (timeToMinutes(schedule.end) - timeToMinutes(schedule.start)) / 60)
+  const shiftInLabel = fmt12h(schedule.start)
+  const shiftOutLabel = fmt12h(schedule.end)
+  const shiftBadgeIn = schedule.start
+  const shiftBadgeOut = schedule.end
+
   const hoursToday = onDuty ? hoursBetween(today.clock_in, new Date()) : (Number(today?.hours) || 0)
-  const shiftPct = Math.min(100, (hoursToday / 8) * 100)
+  const shiftPct = Math.min(100, (hoursToday / shiftHours) * 100)
   const hrs = String(Math.floor(hoursToday)).padStart(2, '0')
   const min = String(Math.floor((hoursToday * 60) % 60)).padStart(2, '0')
+
+  // Clock-in schedule quick-tile: show scheduled clock-in time (or Active if past)
+  const clockInHm = shiftBadgeIn
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes()
+  const scheduledIn = timeToMinutes(shiftBadgeIn)
+  const scheduleIsActive = onDuty || (nowMinutes >= scheduledIn && nowMinutes < timeToMinutes(shiftBadgeOut))
 
   const bg = dark ? 'linear-gradient(180deg,#0d1528,#111827)' : 'linear-gradient(180deg,#f1f5f9,#ffffff)'
   const cardBg = dark ? 'linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.03))' : 'linear-gradient(145deg,#ffffff 0%,#f0f9ff 100%)'
@@ -87,7 +102,7 @@ export default function Home() {
           <div style={{ width: `${shiftPct}%`, height: '100%', background: 'linear-gradient(90deg,#60a5fa,#22ff6a)' }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 9, color: 'rgba(255,255,255,.6)', fontWeight: 600 }}>
-          <span>08:00 IN</span><span>8h shift · {Math.round(shiftPct)}%</span><span>05:00 OUT</span>
+          <span>{shiftBadgeIn} IN</span><span>{shiftHours}h shift · {Math.round(shiftPct)}%</span><span>{shiftBadgeOut} OUT</span>
         </div>
       </div>
 
@@ -124,9 +139,9 @@ export default function Home() {
             <div style={{ width: 30, height: 30, borderRadius: 9, background: dark ? 'rgba(255,255,255,.15)' : 'rgba(255,255,255,.44)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#727376" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', padding: '3px 8px', borderRadius: 999, boxShadow: '0 4px 12px rgba(0,0,0,.2)' }}>Active</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: scheduleIsActive ? '#22c55e' : '#94a3b8', padding: '3px 8px', borderRadius: 999, boxShadow: '0 4px 12px rgba(0,0,0,.2)' }}>{scheduleIsActive ? 'Active' : 'Scheduled'}</div>
           </div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: dark ? '#e2e8f0' : '#022557', marginTop: 8, letterSpacing: -.5 }}>08:00 AM</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: dark ? '#e2e8f0' : '#022557', marginTop: 8, letterSpacing: -.5 }}>{shiftInLabel}</div>
           <div style={{ fontSize: 10, color: dark ? '#94a3b8' : '#3A3B3C', fontWeight: 600 }}>Clock-in schedule</div>
         </Link>
       </div>
@@ -165,8 +180,8 @@ export default function Home() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 6, height: 32, borderRadius: 99, background: '#22c55e' }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: textPrimary }}>Morning Shift · {site?.name || 'Main Office'}</div>
-              <div style={{ fontSize: 10, color: textMuted }}>08:00 AM – 05:00 PM</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: textPrimary }}>Shift · {site?.name || 'Main Office'}</div>
+              <div style={{ fontSize: 10, color: textMuted }}>{shiftInLabel} – {shiftOutLabel}</div>
             </div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', padding: '3px 8px', borderRadius: 999, boxShadow: '0 4px 12px rgba(0,0,0,.2)' }}>Active</div>
           </div>
@@ -195,4 +210,28 @@ function QuickTile({ to, gradient, color, iconColor, label, icon }) {
       <div style={{ fontSize: 10, fontWeight: 700, color }}>{label}</div>
     </Link>
   )
+}
+
+// Parse "HH:MM-HH:MM" schedule string. Falls back to 08:00-17:00.
+function parseSchedule(s) {
+  if (typeof s === 'string') {
+    const m = s.match(/^(\d{2}:\d{2})-(\d{2}:\d{2})$/)
+    if (m) return { start: m[1], end: m[2] }
+  }
+  return { start: '08:00', end: '17:00' }
+}
+
+function timeToMinutes(hhmm) {
+  const [h, m] = String(hhmm).split(':').map(Number)
+  return h * 60 + (m || 0)
+}
+
+// "13:30" -> "1:30 PM"
+function fmt12h(hhmm) {
+  const [h, m] = String(hhmm).split(':').map(Number)
+  const pad = String(m || 0).padStart(2, '0')
+  if (h === 0) return `12:${pad} AM`
+  if (h < 12) return `${h}:${pad} AM`
+  if (h === 12) return `12:${pad} PM`
+  return `${h - 12}:${pad} PM`
 }

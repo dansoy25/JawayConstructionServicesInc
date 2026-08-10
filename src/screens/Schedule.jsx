@@ -29,13 +29,26 @@ export default function Schedule() {
     const d = new Date(selected)
     const isWeekend = d.getDay() === 0 || d.getDay() === 6
     if (isWeekend) return setShifts([])
+
+    // Read the employee's own schedule from profile ("HH:MM-HH:MM"),
+    // falling back to 08:00-17:00 if not set.
+    const sched = parseSchedule(profile?.schedule)
+    const shiftStart = fmt12h(sched.start)
+    const shiftEnd = fmt12h(sched.end)
+
+    // Auto-insert a 1-hour lunch halfway through the shift
+    const startMin = timeToMinutes(sched.start)
+    const endMin = timeToMinutes(sched.end)
+    const midMin = Math.floor((startMin + endMin) / 2 - 30)
+    const lunchStart = minutesToTime(midMin)
+    const lunchEnd = minutesToTime(midMin + 60)
+
     setShifts([
-      { id: 1, label: 'Morning Shift', location: site?.name || 'Main Office', start: '08:00 AM', end: '05:00 PM', status: 'scheduled', color: '#22c55e' },
-      { id: 2, label: 'Lunch Break', location: '60 min · Auto-logged', start: '12:00 PM', end: '01:00 PM', status: 'break', color: '#f59e0b' },
-      { id: 3, label: 'Team Standup', location: 'Room B · Daily sync', start: '02:00 PM', end: '02:30 PM', status: 'meeting', color: '#3b82f6' },
-      { id: 4, label: 'Overtime (optional)', location: 'If available · Tap to opt-in', start: '06:00 PM', end: '08:00 PM', status: 'optional', color: '#a16207' },
+      { id: 1, label: 'Shift', location: site?.name || 'Main Office', start: shiftStart, end: shiftEnd, status: 'scheduled', color: '#22c55e' },
+      { id: 2, label: 'Lunch Break', location: '60 min · Auto-logged', start: fmt12h(lunchStart), end: fmt12h(lunchEnd), status: 'break', color: '#f59e0b' },
+      { id: 3, label: 'Overtime (optional)', location: 'If available · Tap to opt-in', start: fmt12h(sched.end), end: fmt12h(minutesToTime(endMin + 120)), status: 'optional', color: '#a16207' },
     ])
-  }, [selected, profile?.org_id, site?.name])
+  }, [selected, profile?.org_id, profile?.schedule, site?.name])
 
   const selectedDate = new Date(selected)
   const isWeekend = selectedDate.getDay() === 0 || selectedDate.getDay() === 6
@@ -154,4 +167,34 @@ export default function Schedule() {
       <div style={{ height: 30 }} />
     </div>
   )
+}
+
+// Parse "HH:MM-HH:MM" schedule; falls back to 08:00-17:00
+function parseSchedule(s) {
+  if (typeof s === "string") {
+    const m = s.match(/^(\d{2}:\d{2})-(\d{2}:\d{2})$/)
+    if (m) return { start: m[1], end: m[2] }
+  }
+  return { start: "08:00", end: "17:00" }
+}
+
+function timeToMinutes(hhmm) {
+  const [h, m] = String(hhmm).split(":").map(Number)
+  return h * 60 + (m || 0)
+}
+
+function minutesToTime(mins) {
+  const total = ((mins % 1440) + 1440) % 1440
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+}
+
+function fmt12h(hhmm) {
+  const [h, m] = String(hhmm).split(":").map(Number)
+  const pad = String(m || 0).padStart(2, "0")
+  if (h === 0) return `12:${pad} AM`
+  if (h < 12) return `${h}:${pad} AM`
+  if (h === 12) return `12:${pad} PM`
+  return `${h - 12}:${pad} PM`
 }
