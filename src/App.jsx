@@ -48,31 +48,33 @@ function Loading() {
 }
 
 function useBrokenSessionCleanup() {
-  const { session, profile, loading, signOut } = useAuth()
+  const { session, profile, loading, profileLoading, signOut } = useAuth()
   const nav = useNavigate()
   useEffect(() => {
-    if (!loading && session && !profile) {
+    // Only sign out once the profile fetch has definitively finished
+    // (including the retry loop in AuthContext) and still came back empty.
+    if (!loading && !profileLoading && session && !profile) {
       signOut().then(() => nav('/login?e=no-profile', { replace: true }))
     }
-  }, [loading, session, profile, signOut, nav])
+  }, [loading, profileLoading, session, profile, signOut, nav])
 }
 
 function Protected({ children, requireAdmin }) {
-  const { session, profile, loading } = useAuth()
+  const { session, profile, loading, profileLoading } = useAuth()
   useBrokenSessionCleanup()
   if (loading) return <Loading />
   if (!session) return <Navigate to="/login" replace />
-  if (!profile) return <Loading />
+  if (profileLoading || !profile) return <Loading />
   if (requireAdmin && !profile.is_admin) return <Navigate to="/" replace />
   return children
 }
 
 function RoleGate() {
-  const { session, profile, loading } = useAuth()
+  const { session, profile, loading, profileLoading } = useAuth()
   useBrokenSessionCleanup()
   if (loading) return <Loading />
   if (!session) return <Navigate to="/login" replace />
-  if (!profile) return <Loading />
+  if (profileLoading || !profile) return <Loading />
   if (profile.is_admin) return <Navigate to="/admin/dashboard" replace />
   return <Shell />
 }

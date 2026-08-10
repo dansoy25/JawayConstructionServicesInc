@@ -330,6 +330,8 @@ function AddEmployeeModal({ onClose, onCreated }) {
   const [position, setPosition] = useState('')
   const [phone, setPhone] = useState('')
   const [pin, setPin] = useState('')
+  const [shiftStart, setShiftStart] = useState('08:00')
+  const [shiftEnd, setShiftEnd] = useState('17:00')
   const [isAdmin, setIsAdmin] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -339,8 +341,10 @@ function AddEmployeeModal({ onClose, onCreated }) {
     e.preventDefault()
     if (!fullName.trim()) { setErr('Full name is required.'); return }
     if (pin && !/^\d{6}$/.test(pin)) { setErr('PIN must be exactly 6 digits.'); return }
+    if (shiftStart && shiftEnd && shiftStart >= shiftEnd) { setErr('Shift end must be after shift start.'); return }
     setBusy(true); setErr('')
     try {
+      const schedule = shiftStart && shiftEnd ? `${shiftStart}-${shiftEnd}` : null
       const { data, error } = await supabase.functions.invoke('create-employee', {
         body: {
           full_name: fullName.trim(),
@@ -348,6 +352,7 @@ function AddEmployeeModal({ onClose, onCreated }) {
           position: position.trim() || undefined,
           phone: phone.trim() || undefined,
           pin: pin || undefined,
+          schedule: schedule || undefined,
           is_admin: isAdmin,
         },
       })
@@ -381,7 +386,16 @@ function AddEmployeeModal({ onClose, onCreated }) {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <Field label="POSITION" value={position} onChange={setPosition} placeholder="e.g. Foreman" />
-                <Field label="PHONE" value={phone} onChange={setPhone} placeholder="+63 917 …" />
+                <Field
+                  label="PHONE (US)"
+                  value={phone}
+                  onChange={(v) => setPhone(formatUsPhone(v))}
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <TimeField label="SHIFT START (CLOCK IN)" value={shiftStart} onChange={setShiftStart} />
+                <TimeField label="SHIFT END (CLOCK OUT)" value={shiftEnd} onChange={setShiftEnd} />
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#334155', fontWeight: 600, cursor: 'pointer', marginTop: 4 }}>
                 <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
@@ -453,4 +467,33 @@ function Row({ label, value, big }) {
       <div style={{ fontSize: big ? 22 : 13, fontWeight: big ? 900 : 700, color: '#0f172a', fontFamily: 'monospace', letterSpacing: big ? 4 : 1 }}>{value}</div>
     </div>
   )
+}
+
+function TimeField({ label, value, onChange }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4, marginBottom: 4 }}>{label}</div>
+      <input
+        type="time"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: '100%', boxSizing: 'border-box',
+          padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8,
+          fontSize: 13, outline: 'none',
+          color: '#0f172a', background: '#fff', fontWeight: 600,
+        }}
+      />
+    </div>
+  )
+}
+
+// Format any input as a US phone number: (XXX) XXX-XXXX. Leaves extra
+// digits ignored so paste/type both feel natural.
+function formatUsPhone(raw) {
+  const digits = String(raw || '').replace(/\D/g, '').slice(0, 10)
+  if (digits.length === 0) return ''
+  if (digits.length <= 3) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
 }
