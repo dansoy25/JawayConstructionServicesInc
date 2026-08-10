@@ -20,7 +20,7 @@ export default function AdminEmployees() {
     const today = new Date().toISOString().slice(0, 10)
     const [r, a, l] = await Promise.all([
       supabase.from('profiles')
-        .select('id, full_name, avatar_url, employee_code, is_admin, position, phone, schedule')
+        .select('id, full_name, avatar_url, employee_code, is_admin, position, phone, schedule, daily_rate')
         .eq('org_id', profile.org_id)
         .order('full_name'),
       supabase.from('attendance')
@@ -86,7 +86,7 @@ export default function AdminEmployees() {
         <table style={table}>
           <thead>
             <tr>
-              {['','EMPLOYEE','POSITION','ROLE','STATUS','LOGIN',''].map((h, i) => <th key={i} style={th}>{h}</th>)}
+              {['','EMPLOYEE','POSITION','RATE','ROLE','STATUS','LOGIN',''].map((h, i) => <th key={i} style={th}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -105,6 +105,9 @@ export default function AdminEmployees() {
                   </div>
                 </td>
                 <td style={td}>{r.position || '—'}</td>
+                <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>
+                  {Number(r.daily_rate) > 0 ? `$${Number(r.daily_rate).toFixed(2)}/hr` : <span style={{ color: '#94a3b8', fontWeight: 400 }}>—</span>}
+                </td>
                 <td style={td}>{r.is_admin ? 'Admin' : 'Employee'}</td>
                 <td style={td}><span style={chip('#DCFCE7', '#15803d')}>● Active</span></td>
                 <td style={{ ...td, color: '#64748b', fontSize: 11, fontFamily: 'monospace' }}>{r.employee_code}</td>
@@ -141,9 +144,10 @@ function AddEmployeeModal({ onClose, onCreated }) {
   const [position, setPosition] = useState('')
   const [phone, setPhone] = useState('')
   const [pin, setPin] = useState('')
+  const [hourlyRate, setHourlyRate] = useState('')
   const [shiftStart, setShiftStart] = useState('08:00')
   const [shiftEnd, setShiftEnd] = useState('17:00')
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [loginAs, setLoginAs] = useState('employee') // 'employee' | 'admin'
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [result, setResult] = useState(null)
@@ -164,7 +168,8 @@ function AddEmployeeModal({ onClose, onCreated }) {
           phone: phone.trim() || undefined,
           pin: pin || undefined,
           schedule: schedule || undefined,
-          is_admin: isAdmin,
+          daily_rate: hourlyRate ? Number(hourlyRate) : undefined,
+          is_admin: loginAs === 'admin',
         },
       })
       if (error) throw error
@@ -208,10 +213,18 @@ function AddEmployeeModal({ onClose, onCreated }) {
                 <TimeField label="SHIFT START (CLOCK IN)" value={shiftStart} onChange={setShiftStart} />
                 <TimeField label="SHIFT END (CLOCK OUT)" value={shiftEnd} onChange={setShiftEnd} />
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#334155', fontWeight: 600, cursor: 'pointer', marginTop: 4 }}>
-                <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
-                Make this user an admin (can access /admin dashboard)
-              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <RateField label="HOURLY RATE ($/HR)" value={hourlyRate} onChange={setHourlyRate} />
+                <SelectField
+                  label="LOGIN AS"
+                  value={loginAs}
+                  onChange={setLoginAs}
+                  options={[
+                    { value: 'employee', label: 'Employee app (mobile PIN)' },
+                    { value: 'admin', label: 'Admin dashboard (desktop)' },
+                  ]}
+                />
+              </div>
 
               {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
 
@@ -280,6 +293,51 @@ function Row({ label, value, big }) {
   )
 }
 
+function RateField({ label, value, onChange }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4, marginBottom: 4 }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', paddingLeft: 12 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#64748b' }}>$</span>
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ''))}
+          placeholder="0.00"
+          inputMode="decimal"
+          style={{
+            flex: 1, boxSizing: 'border-box',
+            padding: '10px 12px', border: 'none', outline: 'none',
+            fontSize: 13, fontFamily: 'monospace', fontWeight: 700,
+            color: '#0f172a', background: 'transparent',
+          }}
+        />
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', paddingRight: 12 }}>/ hour</span>
+      </div>
+    </div>
+  )
+}
+
+function SelectField({ label, value, onChange, options }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4, marginBottom: 4 }}>{label}</div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: '100%', boxSizing: 'border-box',
+          padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8,
+          fontSize: 13, outline: 'none',
+          color: '#0f172a', background: '#fff', fontWeight: 600,
+          cursor: 'pointer',
+        }}
+      >
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  )
+}
+
 function TimeField({ label, value, onChange }) {
   return (
     <div>
@@ -315,7 +373,8 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
   const [fullName, setFullName] = useState(employee.full_name || '')
   const [position, setPosition] = useState(employee.position || '')
   const [phone, setPhone] = useState(employee.phone || '')
-  const [isAdmin, setIsAdmin] = useState(!!employee.is_admin)
+  const [hourlyRate, setHourlyRate] = useState(employee.daily_rate ? String(employee.daily_rate) : '')
+  const [loginAs, setLoginAs] = useState(employee.is_admin ? 'admin' : 'employee')
   const initialSched = parseSchedule(employee.schedule)
   const [shiftStart, setShiftStart] = useState(initialSched.start)
   const [shiftEnd, setShiftEnd] = useState(initialSched.end)
@@ -334,7 +393,8 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
         position: position.trim() || null,
         phone: phone.trim() || null,
         schedule,
-        is_admin: isAdmin,
+        daily_rate: hourlyRate ? Number(hourlyRate) : 0,
+        is_admin: loginAs === 'admin',
       }).eq('id', employee.id)
       if (error) throw error
       onSaved()
@@ -368,10 +428,18 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
             <TimeField label="SHIFT START (CLOCK IN)" value={shiftStart} onChange={setShiftStart} />
             <TimeField label="SHIFT END (CLOCK OUT)" value={shiftEnd} onChange={setShiftEnd} />
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#334155', fontWeight: 600, cursor: 'pointer', marginTop: 4 }}>
-            <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
-            Admin (can access /admin dashboard)
-          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <RateField label="HOURLY RATE ($/HR)" value={hourlyRate} onChange={setHourlyRate} />
+            <SelectField
+              label="LOGIN AS"
+              value={loginAs}
+              onChange={setLoginAs}
+              options={[
+                { value: 'employee', label: 'Employee app (mobile PIN)' },
+                { value: 'admin', label: 'Admin dashboard (desktop)' },
+              ]}
+            />
+          </div>
 
           {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
 

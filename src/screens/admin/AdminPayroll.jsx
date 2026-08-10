@@ -142,30 +142,44 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone }) {
   const [periodEnd, setPeriodEnd] = useState(defaultPeriod.end)
   const [payDate, setPayDate] = useState(addDays(defaultPeriod.end, 5))
   const [employees, setEmployees] = useState([])
+  const [attendance, setAttendance] = useState([])
   const [selected, setSelected] = useState(new Set())
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
   useEffect(() => {
     if (!orgId) return
-    supabase.from('profiles')
-      .select('id, full_name, employee_code, position, daily_rate, schedule')
-      .eq('org_id', orgId)
-      .eq('is_admin', false)
-      .order('full_name')
-      .then(({ data }) => {
-        const rows = data || []
-        setEmployees(rows)
-        setSelected(new Set(rows.map((r) => r.id)))
-      })
-  }, [orgId])
+    Promise.all([
+      supabase.from('profiles')
+        .select('id, full_name, employee_code, position, daily_rate, schedule')
+        .eq('org_id', orgId)
+        .eq('is_admin', false)
+        .order('full_name'),
+      supabase.from('attendance')
+        .select('profile_id, hours, clock_in, clock_out, work_date')
+        .eq('org_id', orgId)
+        .gte('work_date', periodStart)
+        .lte('work_date', periodEnd),
+    ]).then(([e, a]) => {
+      const rows = e.data || []
+      setEmployees(rows)
+      setAttendance(a.data || [])
+      setSelected(new Set(rows.map((r) => r.id)))
+    })
+  }, [orgId, periodStart, periodEnd])
 
-  // Rough compute: basic = daily_rate * 15 days (semi-monthly). OT = 0 default.
-  // Deductions applied at US_RATES (all 0 for now).
+  // Hourly rate × actual hours worked within the period.
+  // If no attendance data is recorded, falls back to scheduled hours from
+  // the employee's shift × business days in the period (10 for semi-monthly).
   const rows = useMemo(() => {
     return employees.filter((e) => selected.has(e.id)).map((e) => {
-      const basic = Number(e.daily_rate || 0) * 15
-      const ot = 0
+      const empAtt = attendance.filter((a) => a.profile_id === e.id && a.hours)
+      const actualHours = empAtt.reduce((s, a) => s + Number(a.hours || 0), 0)
+      const regularHours = actualHours > 0 ? Math.min(actualHours, 80) : 80 // 80h = 10d × 8h semi-monthly default
+      const otHours = Math.max(0, actualHours - 80)
+      const rate = Number(e.daily_rate || 0)
+      const basic = rate * regularHours
+      const ot = rate * 1.5 * otHours
       const gross = basic + ot
       const fed = gross * US_RATES.federal_income_tax
       const state = gross * US_RATES.state_income_tax
@@ -173,9 +187,9 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone }) {
       const med = gross * US_RATES.medicare
       const deductions = fed + state + ss + med
       const net = gross - deductions
-      return { emp: e, basic, ot, gross, fed, state, ss, med, deductions, net }
+      return { emp: e, rate, regularHours, otHours, basic, ot, gross, fed, state, ss, med, deductions, net }
     })
-  }, [employees, selected])
+  }, [employees, attendance, selected])
 
   const totals = useMemo(() => rows.reduce((t, r) => ({
     basic: t.basic + r.basic, ot: t.ot + r.ot, gross: t.gross + r.gross,
@@ -204,9 +218,9 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone }) {
       const slips = rows.map((r) => ({
         profile_id: r.emp.id, org_id: orgId,
         period_start: periodStart, period_end: periodEnd,
-        regular_hours: 120, ot_hours: 0,
+        regular_hours: r.regularHours, ot_hours: r.otHours,
         gross: r.gross, net: r.net, status: 'sent', paid_to: null,
-        earnings: { basic: r.basic, overtime: r.ot },
+        earnings: { rate_per_hour: r.rate, regular_hours: r.regularHours, ot_hours: r.otHours, basic: r.basic, overtime: r.ot },
         deductions: {
           federal_income_tax: r.fed, state_income_tax: r.state,
           social_security: r.ss, medicare: r.med,
@@ -266,7 +280,7 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone }) {
                         <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{e.full_name}</div>
                         <div style={{ fontSize: 10, color: '#94a3b8' }}>{e.position || 'Employee'} · {e.employee_code}</div>
                       </div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{fmtUSD((Number(e.daily_rate) || 0) * 15)}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{Number(e.daily_rate) > 0 ? `${fmtUSD(e.daily_rate)}/hr` : <span style={{ color: '#94a3b8' }}>no rate</span>}</div>
                     </label>
                   ))}
                 </div>
