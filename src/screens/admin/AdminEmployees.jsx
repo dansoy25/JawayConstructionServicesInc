@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/util'
 import { card, table, th, td, btnPrimary, btnGhost, chip, StatTile, PageHeader } from './adminShared'
+import MapView from '../../components/MapView'
 
 export default function AdminEmployees() {
   const { profile } = useAuth()
@@ -87,7 +88,152 @@ export default function AdminEmployees() {
         </table>
       </div>
 
+      {/* Worksites / GPS geofences */}
+      <div style={{ marginTop: 24 }}>
+        <SitesPanel orgId={profile?.org_id} />
+      </div>
+
       {showAdd && <AddEmployeeModal onClose={() => setShowAdd(false)} onCreated={() => { setShowAdd(false); load() }} />}
+    </div>
+  )
+}
+
+function SitesPanel({ orgId }) {
+  const [sites, setSites] = useState([])
+  const [editing, setEditing] = useState(null)
+  const [adding, setAdding] = useState(false)
+
+  const load = () => {
+    if (!orgId) return
+    supabase.from('sites').select('*').eq('org_id', orgId).order('name').then(({ data }) => setSites(data || []))
+  }
+  useEffect(() => { load() }, [orgId])
+
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden' }}>
+      <div style={{ padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>Worksites & GPS geofences</div>
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Employees can only clock in when they're inside the geofence of their assigned site.</div>
+        </div>
+        <button onClick={() => setAdding(true)} style={btnPrimary}>+ Add site</button>
+      </div>
+
+      {sites.length === 0 ? (
+        <div style={{ padding: 30, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>No worksites yet. Click <b>+ Add site</b> to create one.</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 14, padding: 14 }}>
+          {sites.map((s) => (
+            <div key={s.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,.04)' }}>
+              <MapView
+                center={[Number(s.lat), Number(s.lng)]}
+                radiusM={s.radius_m || 100}
+                siteName={s.name}
+                height={160}
+              />
+              <div style={{ padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>{s.name}</div>
+                    <div style={{ fontSize: 10, color: '#64748b', marginTop: 2, fontFamily: 'monospace' }}>
+                      {Number(s.lat).toFixed(5)}, {Number(s.lng).toFixed(5)} · {s.radius_m || 100}m
+                    </div>
+                  </div>
+                  <button onClick={() => setEditing(s)} style={{ ...btnGhost, padding: '6px 10px', fontSize: 11 }}>Edit</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editing && <SiteEditorModal site={editing} orgId={orgId} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} />}
+      {adding && <SiteEditorModal site={null} orgId={orgId} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load() }} />}
+    </div>
+  )
+}
+
+function SiteEditorModal({ site, orgId, onClose, onSaved }) {
+  const isNew = !site
+  const [name, setName] = useState(site?.name || '')
+  const [lat, setLat] = useState(site?.lat || 14.5995)
+  const [lng, setLng] = useState(site?.lng || 120.9842)
+  const [radius, setRadius] = useState(site?.radius_m || 100)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) return setErr('Geolocation not supported by this browser.')
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setLat(p.coords.latitude); setLng(p.coords.longitude) },
+      (e) => setErr(e.message || 'Could not get your location.')
+    )
+  }
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!name.trim()) { setErr('Site name is required.'); return }
+    setBusy(true); setErr('')
+    try {
+      const payload = { name: name.trim(), lat: Number(lat), lng: Number(lng), radius_m: Number(radius) || 100 }
+      if (isNew) {
+        const { error } = await supabase.from('sites').insert({ ...payload, org_id: orgId })
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('sites').update(payload).eq('id', site.id)
+        if (error) throw error
+      }
+      onSaved()
+    } catch (e) { setErr(e.message || 'Save failed.') }
+    setBusy(false)
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20, backdropFilter: 'blur(4px)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 640, background: '#fff', borderRadius: 16, padding: 20, boxShadow: '0 20px 60px rgba(0,0,0,.3)', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>{isNew ? 'Add worksite' : 'Edit worksite'}</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 20 }}>✕</button>
+        </div>
+        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>
+          Click anywhere on the map to move the pin. Employees within the blue circle can clock in.
+        </div>
+
+        <form onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
+          <div>
+            <MapView
+              center={[Number(lat), Number(lng)]}
+              radiusM={Number(radius)}
+              siteName={name || 'New site'}
+              height={280}
+              editable
+              onChange={({ lat: la, lng: lo }) => { setLat(la); setLng(lo) }}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <Field label="SITE NAME *" value={name} onChange={setName} placeholder="ACME HQ" autoFocus />
+            <Field label={`GEOFENCE RADIUS: ${radius}m`} value={radius} onChange={(v) => setRadius(v.replace(/\D/g, ''))} placeholder="100" mono />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+            <Field label="LATITUDE" value={String(lat)} onChange={(v) => setLat(v)} mono />
+            <Field label="LONGITUDE" value={String(lng)} onChange={(v) => setLng(v)} mono />
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4, marginBottom: 4 }}>&nbsp;</div>
+              <button type="button" onClick={useMyLocation} style={{ ...btnGhost, width: '100%', padding: '10px 12px', fontSize: 11 }}>📍 Use my location</button>
+            </div>
+          </div>
+
+          {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+            <button type="button" onClick={onClose} style={btnGhost}>Cancel</button>
+            <button type="submit" disabled={busy} style={{ ...btnPrimary, opacity: busy ? 0.6 : 1 }}>
+              {busy ? 'Saving…' : (isNew ? 'Create site' : 'Save changes')}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
@@ -205,6 +351,9 @@ function Field({ label, value, onChange, placeholder, mono, autoFocus }) {
           fontSize: 13, fontFamily: mono ? 'monospace' : 'inherit',
           letterSpacing: mono ? 2 : 0,
           outline: 'none',
+          color: '#0f172a',
+          background: '#fff',
+          fontWeight: 600,
         }}
       />
     </div>

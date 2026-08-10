@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { supabase } from '../lib/supabase'
 import { manilaToday, distanceMeters, getCurrentPosition, hoursBetween, fmtTime } from '../lib/util'
+import MapView from '../components/MapView'
 
 export default function ClockIn() {
   const { profile, site } = useAuth()
@@ -81,26 +82,27 @@ export default function ClockIn() {
         <div style={{ width: 36 }} />
       </div>
 
-      {/* Map placeholder */}
-      <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', height: 200, border: '1px solid rgba(255,255,255,.1)', background: 'linear-gradient(135deg,#e0f2fe,#bae6fd 40%,#7dd3fc 100%)' }}>
-        <svg width="100%" height="100%" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" style={{ display: 'block' }}>
-          <defs>
-            <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
-              <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(37,99,235,.15)" strokeWidth="1"/>
-            </pattern>
-          </defs>
-          <rect width="400" height="200" fill="url(#grid)"/>
-          <path d="M0,100 Q100,60 200,100 T400,100" stroke="rgba(37,99,235,.35)" strokeWidth="3" fill="none"/>
-          <path d="M0,140 Q120,120 250,150 T400,140" stroke="rgba(37,99,235,.25)" strokeWidth="2" fill="none"/>
-          <circle cx="200" cy="100" r={withinFence ? 40 : 30} fill="rgba(37,99,235,.15)" stroke="rgba(37,99,235,.5)" strokeWidth="2" strokeDasharray="4 4"/>
-          <circle cx="200" cy="100" r="8" fill="#2563eb" stroke="#fff" strokeWidth="3"/>
-          <circle cx="200" cy="100" r="14" fill="rgba(37,99,235,.3)"/>
-        </svg>
-        <div style={{ position: 'absolute', top: 10, left: 10, background: '#fff', borderRadius: 999, padding: '5px 10px', fontSize: 10, fontWeight: 700, color: '#111', boxShadow: '0 5px 12px rgba(0,0,0,.3)', display: 'flex', alignItems: 'center', gap: 5 }}>
+      {/* Real Leaflet map */}
+      <div style={{ position: 'relative' }}>
+        {site?.lat && site?.lng ? (
+          <MapView
+            center={[Number(site.lat), Number(site.lng)]}
+            zoom={17}
+            radiusM={site.radius_m || 100}
+            siteName={site.name || 'Site'}
+            userPos={pos}
+            height={200}
+          />
+        ) : (
+          <div style={{ height: 200, borderRadius: 16, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: 12, fontWeight: 600 }}>
+            No worksite assigned. Contact your administrator.
+          </div>
+        )}
+        <div style={{ position: 'absolute', top: 10, left: 10, background: '#fff', borderRadius: 999, padding: '5px 10px', fontSize: 10, fontWeight: 700, color: '#111', boxShadow: '0 5px 12px rgba(0,0,0,.3)', display: 'flex', alignItems: 'center', gap: 5, zIndex: 400 }}>
           <span style={{ width: 6, height: 6, background: withinFence ? '#22c55e' : '#ef4444', borderRadius: '50%' }} />
           GPS {pos ? `±${Math.round(pos.accuracy || 4)}m` : posErr ? 'error' : '…'}
         </div>
-        <div style={{ position: 'absolute', top: 10, right: 10, background: withinFence ? 'rgba(34,197,94,.9)' : 'rgba(239,68,68,.9)', color: '#fff', borderRadius: 999, padding: '5px 10px', fontSize: 10, fontWeight: 800, letterSpacing: .5 }}>
+        <div style={{ position: 'absolute', top: 10, right: 10, background: withinFence ? 'rgba(34,197,94,.95)' : 'rgba(239,68,68,.95)', color: '#fff', borderRadius: 999, padding: '5px 10px', fontSize: 10, fontWeight: 800, letterSpacing: .5, zIndex: 400 }}>
           {withinFence ? 'IN RANGE' : 'OUT OF RANGE'}
         </div>
       </div>
