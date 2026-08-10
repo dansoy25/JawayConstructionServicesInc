@@ -32,11 +32,8 @@ import AdminTasks from './screens/admin/AdminTasks'
 import AdminLeave from './screens/admin/AdminLeave'
 import AdminPayroll from './screens/admin/AdminPayroll'
 import AdminPayslips from './screens/admin/AdminPayslips'
-import AdminSales from './screens/admin/AdminSales'
-import AdminExpenses from './screens/admin/AdminExpenses'
-import AdminInventory from './screens/admin/AdminInventory'
+import AdminGps from './screens/admin/AdminGps'
 import AdminReports from './screens/admin/AdminReports'
-import AdminBackup from './screens/admin/AdminBackup'
 import AdminSettings from './screens/admin/AdminSettings'
 
 function Loading() {
@@ -97,11 +94,8 @@ export default function App() {
             <Route path="leave" element={<AdminLeave />} />
             <Route path="payroll" element={<AdminPayroll />} />
             <Route path="payslips" element={<AdminPayslips />} />
-            <Route path="sales" element={<AdminSales />} />
-            <Route path="expenses" element={<AdminExpenses />} />
-            <Route path="inventory" element={<AdminInventory />} />
+            <Route path="gps" element={<AdminGps />} />
             <Route path="reports" element={<AdminReports />} />
-            <Route path="backup" element={<AdminBackup />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 
