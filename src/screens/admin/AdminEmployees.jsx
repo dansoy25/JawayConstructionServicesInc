@@ -117,13 +117,19 @@ export default function AdminEmployees() {
                     onClick={() => setEditing(r)}
                     style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', marginRight: 6, fontSize: 15 }}
                   >✎</button>
-                  {r.id !== profile?.id && (
-                    <button
-                      title="Delete employee"
-                      onClick={() => setDeleting(r)}
-                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 15 }}
-                    >🗑</button>
-                  )}
+                  <button
+                    title={r.id === profile?.id
+                      ? "You can't delete your own account. Ask another admin to remove you."
+                      : `Delete ${r.full_name}`}
+                    onClick={() => r.id !== profile?.id && setDeleting(r)}
+                    disabled={r.id === profile?.id}
+                    style={{
+                      background: 'none', border: 'none',
+                      color: r.id === profile?.id ? '#cbd5e1' : '#ef4444',
+                      cursor: r.id === profile?.id ? 'not-allowed' : 'pointer',
+                      fontSize: 15,
+                    }}
+                  >🗑</button>
                 </td>
               </tr>
             ))}
