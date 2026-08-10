@@ -8,38 +8,67 @@ export default function AdminEmployees() {
   const { profile } = useAuth()
   const [rows, setRows] = useState([])
   const [showAdd, setShowAdd] = useState(false)
+  const [attToday, setAttToday] = useState([])
+  const [onLeaveToday, setOnLeaveToday] = useState(0)
+  const [loadErr, setLoadErr] = useState('')
 
-  const load = () => {
+  const load = async () => {
     if (!profile?.org_id) return
-    supabase.from('profiles').select('id, full_name, avatar_url, role, employee_code, is_admin, position').eq('org_id', profile.org_id).order('full_name').then(({ data }) => setRows(data || []))
+    setLoadErr('')
+    const today = new Date().toISOString().slice(0, 10)
+    const [r, a, l] = await Promise.all([
+      supabase.from('profiles')
+        .select('id, full_name, avatar_url, role, employee_code, is_admin, position, phone, schedule')
+        .eq('org_id', profile.org_id)
+        .order('full_name'),
+      supabase.from('attendance')
+        .select('profile_id, clock_out')
+        .eq('org_id', profile.org_id)
+        .eq('work_date', today),
+      supabase.from('leave_requests')
+        .select('profile_id')
+        .eq('org_id', profile.org_id)
+        .eq('status', 'approved')
+        .lte('start_date', today)
+        .gte('end_date', today),
+    ])
+    if (r.error) { setLoadErr(r.error.message); return }
+    setRows(r.data || [])
+    setAttToday(a.data || [])
+    setOnLeaveToday((l.data || []).length)
   }
   useEffect(() => { load() }, [profile?.org_id])
 
-  const active = rows.filter((r) => !r.is_admin).length
-  const departments = new Set(rows.map((r) => r.role)).size
+  const nonAdmin = rows.filter((r) => !r.is_admin)
+  const clockedInSet = new Set(attToday.filter((x) => !x.clock_out).map((x) => x.profile_id))
+  const activeCount = nonAdmin.length
+  const clockedInToday = nonAdmin.filter((r) => clockedInSet.has(r.id)).length
+  const departments = new Set(nonAdmin.map((r) => r.position).filter(Boolean)).size
 
   return (
     <div style={{ padding: 32 }}>
       <PageHeader
         title="Employees"
-        sub={`${active} active · 3 on leave · 2 pending invite`}
+        sub={`${activeCount} active · ${onLeaveToday} on leave today · ${clockedInToday} clocked in`}
         actions={<>
-          <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 2 }}>
-            <button style={{ padding: '6px 14px', border: 'none', background: '#2563eb', color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Today</button>
-            <button style={{ padding: '6px 14px', border: 'none', background: 'transparent', color: '#64748b', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Week</button>
-            <button style={{ padding: '6px 14px', border: 'none', background: 'transparent', color: '#64748b', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Month</button>
-          </div>
           <button onClick={() => setShowAdd(true)} style={btnPrimary}>+ Add employee</button>
+          <button onClick={load} style={btnGhost}>↻ Refresh</button>
           <button style={btnGhost}>⬇ CSV</button>
           <button style={btnGhost}>📄 PDF</button>
         </>}
       />
 
+      {loadErr && (
+        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>
+          Couldn't load employees: {loadErr}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 20 }}>
-        <StatTile icon="👤" label="ACTIVE" value={active} sub="clocked in today" accent="#22c55e" />
-        <StatTile icon="🏖" label="ON LEAVE" value="3" sub="returning Thu" accent="#f59e0b" />
-        <StatTile icon="✉" label="PENDING" value="2" sub="Action needed" subColor="#b91c1c" accent="#2563eb" />
-        <StatTile icon="🏢" label="DEPARTMENTS" value={departments || 6} sub="3 branches" accent="#a855f7" />
+        <StatTile icon="👤" label="ACTIVE" value={activeCount} sub="on the roster" accent="#22c55e" />
+        <StatTile icon="⏱" label="CLOCKED IN" value={clockedInToday} sub="right now" accent="#2563eb" />
+        <StatTile icon="🏖" label="ON LEAVE" value={onLeaveToday} sub="today" accent="#f59e0b" />
+        <StatTile icon="🏢" label="DEPARTMENTS" value={departments} sub="unique positions" accent="#a855f7" />
       </div>
 
       <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden' }}>
