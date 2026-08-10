@@ -387,6 +387,36 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
+  // Reset password / PIN
+  const [showResetPin, setShowResetPin] = useState(false)
+  const [newPin, setNewPin] = useState('')
+  const [resetBusy, setResetBusy] = useState(false)
+  const [resetErr, setResetErr] = useState('')
+  const [resetResult, setResetResult] = useState(null) // { new_pin }
+  const isAdminAccount = loginAs === 'admin'
+
+  const doResetPin = async () => {
+    setResetErr(''); setResetResult(null)
+    if (newPin) {
+      if (isAdminAccount) {
+        if (newPin.length < 6) { setResetErr('Admin password must be at least 6 characters.'); return }
+      } else if (!/^\d{6}$/.test(newPin)) {
+        setResetErr('PIN must be exactly 6 digits.'); return
+      }
+    }
+    setResetBusy(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-employee-pin', {
+        body: { id: employee.id, pin: newPin || undefined },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      setResetResult(data)
+      setNewPin('')
+    } catch (e) { setResetErr(e.message || 'Reset failed.') }
+    setResetBusy(false)
+  }
+
   const submit = async (e) => {
     e.preventDefault()
     if (!fullName.trim()) { setErr('Full name is required.'); return }
@@ -448,6 +478,103 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
           </div>
 
           {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
+
+          {/* Reset PIN / password section */}
+          <div style={{ marginTop: 4, padding: 14, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10 }}>
+            {!showResetPin && !resetResult && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>
+                    {isAdminAccount ? 'Password' : 'PIN'}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                    Supabase stores {isAdminAccount ? 'passwords' : 'PINs'} as one-way encrypted hashes — the current value can't be read back. Reset to issue a new one.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowResetPin(true)}
+                  style={{ ...btnGhost, padding: '8px 14px', fontSize: 11, flexShrink: 0 }}
+                >
+                  🔑 Reset {isAdminAccount ? 'password' : 'PIN'}
+                </button>
+              </div>
+            )}
+
+            {showResetPin && !resetResult && (
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>
+                  Reset {isAdminAccount ? 'password' : 'PIN'} for {employee.full_name}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4, marginBottom: 4 }}>
+                      NEW {isAdminAccount ? 'PASSWORD (min 6 chars)' : 'PIN (6 digits, auto if blank)'}
+                    </div>
+                    <input
+                      type="text"
+                      value={newPin}
+                      onChange={(e) => setNewPin(isAdminAccount ? e.target.value : e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder={isAdminAccount ? 'Enter a strong password' : 'Auto-generate'}
+                      style={{
+                        width: '100%', boxSizing: 'border-box',
+                        padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8,
+                        fontSize: 13, fontFamily: 'monospace', outline: 'none',
+                        color: '#0f172a', background: '#fff', fontWeight: 700, letterSpacing: 2,
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={doResetPin}
+                    disabled={resetBusy}
+                    style={{ ...btnPrimary, padding: '10px 14px', fontSize: 12, opacity: resetBusy ? 0.6 : 1 }}
+                  >{resetBusy ? '…' : 'Apply'}</button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowResetPin(false); setNewPin(''); setResetErr('') }}
+                    style={{ ...btnGhost, padding: '10px 12px', fontSize: 11 }}
+                  >Cancel</button>
+                </div>
+                {resetErr && (
+                  <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 8, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 11, fontWeight: 600 }}>{resetErr}</div>
+                )}
+              </div>
+            )}
+
+            {resetResult && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#DCFCE7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>✓</div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>
+                    New {resetResult.is_admin ? 'password' : 'PIN'} set. Copy it now — you can't view it again.
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{
+                    flex: 1, padding: '12px 16px', background: '#fff',
+                    border: '2px solid #22c55e', borderRadius: 8,
+                    fontSize: resetResult.is_admin ? 15 : 22,
+                    fontFamily: 'monospace', fontWeight: 900, color: '#0f172a',
+                    letterSpacing: resetResult.is_admin ? 1 : 6, textAlign: 'center',
+                  }}>{resetResult.new_pin}</div>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(resetResult.new_pin)}
+                    style={{ ...btnGhost, padding: '10px 14px', fontSize: 12 }}
+                  >📋 Copy</button>
+                  <button
+                    type="button"
+                    onClick={() => { setResetResult(null); setShowResetPin(false) }}
+                    style={{ ...btnGhost, padding: '10px 14px', fontSize: 12 }}
+                  >Done</button>
+                </div>
+                <div style={{ fontSize: 11, color: '#64748b', marginTop: 8 }}>
+                  Give this to <b>{resetResult.full_name}</b> ({resetResult.employee_code}). They can sign in immediately with the new {resetResult.is_admin ? 'password' : 'PIN'}; their old one no longer works.
+                </div>
+              </div>
+            )}
+          </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
             <button type="button" onClick={onClose} style={btnGhost}>Cancel</button>
