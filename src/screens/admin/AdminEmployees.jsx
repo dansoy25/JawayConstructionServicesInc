@@ -13,6 +13,7 @@ export default function AdminEmployees() {
   const [attToday, setAttToday] = useState([])
   const [onLeaveToday, setOnLeaveToday] = useState(0)
   const [loadErr, setLoadErr] = useState('')
+  const [search, setSearch] = useState('')
 
   const load = async () => {
     if (!profile?.org_id) return
@@ -47,6 +48,16 @@ export default function AdminEmployees() {
   const clockedInToday = nonAdmin.filter((r) => clockedInSet.has(r.id)).length
   const departments = new Set(nonAdmin.map((r) => r.position).filter(Boolean)).size
 
+  // Live search across name, employee code, and position
+  const q = search.trim().toLowerCase()
+  const visibleRows = q
+    ? rows.filter((r) => (
+        (r.full_name || '').toLowerCase().includes(q) ||
+        (r.employee_code || '').toLowerCase().includes(q) ||
+        (r.position || '').toLowerCase().includes(q)
+      ))
+    : rows
+
   return (
     <div style={{ padding: 32 }}>
       <PageHeader
@@ -77,22 +88,40 @@ export default function AdminEmployees() {
         <div style={{ padding: 16, display: 'flex', gap: 12, alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 12px' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input placeholder="Search by name, ID, or email…" style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 12 }} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, employee ID, or position…"
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 12 }}
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                title="Clear search"
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14, padding: 0 }}
+              >✕</button>
+            )}
           </div>
           <button style={btnGhost}>All departments</button>
           <button style={btnGhost}>All status</button>
-          <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{rows.length} employees</span>
+          <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
+            {q ? `${visibleRows.length} of ${rows.length}` : `${rows.length} employees`}
+          </span>
         </div>
         <table style={table}>
           <thead>
             <tr>
-              {['','EMPLOYEE','POSITION','RATE','ROLE','STATUS','LOGIN',''].map((h, i) => <th key={i} style={th}>{h}</th>)}
+              {['EMPLOYEE','POSITION','RATE','ROLE','STATUS','LOGIN',''].map((h, i) => <th key={i} style={th}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {visibleRows.length === 0 && (
+              <tr><td colSpan="7" style={{ ...td, textAlign: 'center', padding: 30, color: '#94a3b8' }}>
+                {q ? `No employees match "${search}"` : 'No employees yet — click "+ Add employee" to get started.'}
+              </td></tr>
+            )}
+            {visibleRows.map((r) => (
               <tr key={r.id}>
-                <td style={td}><input type="checkbox" /></td>
                 <td style={td}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#dbeafe', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 10 }}>
