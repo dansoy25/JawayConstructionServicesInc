@@ -74,3 +74,16 @@ body {
 .chip-red   { background:rgba(239,68,68,.15); color:#b91c1c; }
 .chip-blue  { background:rgba(59,130,246,.15); color:#1d4ed8; }
 .chip-slate { background:rgba(100,116,139,.15); color:#334155; }
+
+/* Admin page inputs default to dark text on light backgrounds. Prevents
+   the "invisible search bar" bug where transparent inputs inherit white
+   or theme colors and become unreadable on the admin dashboard. */
+input, textarea, select { color: inherit; }
+input::placeholder, textarea::placeholder { color: #94a3b8; }
+main input:not([type='checkbox']):not([type='radio']),
+main textarea,
+main select {
+  color: #0f172a;
+}
+main input::placeholder,
+main textarea::placeholder { color: #94a3b8; }

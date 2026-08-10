@@ -35,7 +35,7 @@ export default function Profile() {
           <div style={{ position: 'absolute', bottom: 0, right: -2, width: 22, height: 22, borderRadius: '50%', background: '#22c55e', border: '3px solid #1e3a8a' }} />
         </div>
         <div style={{ fontSize: 18, fontWeight: 800, marginTop: 10 }}>{profile?.full_name || 'Employee'}</div>
-        <div style={{ fontSize: 11, opacity: .8, marginTop: 2 }}>{profile?.role || 'Employee'} · #{profile?.employee_code || 'EMP-000'}</div>
+        <div style={{ fontSize: 11, opacity: .8, marginTop: 2 }}>{profile?.position || 'Employee'} · #{profile?.employee_code || 'EMP-000'}</div>
       </div>
 
       {/* Stat row */}

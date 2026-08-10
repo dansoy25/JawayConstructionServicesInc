@@ -18,7 +18,7 @@ export default function AdminEmployees() {
     const today = new Date().toISOString().slice(0, 10)
     const [r, a, l] = await Promise.all([
       supabase.from('profiles')
-        .select('id, full_name, avatar_url, role, employee_code, is_admin, position, phone, schedule')
+        .select('id, full_name, avatar_url, employee_code, is_admin, position, phone, schedule')
         .eq('org_id', profile.org_id)
         .order('full_name'),
       supabase.from('attendance')

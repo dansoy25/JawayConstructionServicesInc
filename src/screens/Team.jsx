@@ -21,7 +21,7 @@ export default function Team() {
   useEffect(() => {
     if (!profile?.org_id) return
     ;(async () => {
-      const { data: ppl } = await supabase.from('profiles').select('id, full_name, avatar_url, role, employee_code').eq('org_id', profile.org_id).eq('is_admin', false).order('full_name').limit(30)
+      const { data: ppl } = await supabase.from('profiles').select('id, full_name, avatar_url, position, employee_code').eq('org_id', profile.org_id).eq('is_admin', false).order('full_name').limit(30)
       setMembers(ppl || [])
       const { data: att } = await supabase.from('attendance').select('profile_id, clock_out').eq('org_id', profile.org_id).eq('work_date', manilaToday())
       setOnDutyIds(new Set((att || []).filter((r) => !r.clock_out).map((r) => r.profile_id)))
@@ -65,7 +65,7 @@ export default function Team() {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: textPrimary }}>{m.full_name}</div>
-                <div style={{ fontSize: 10, color: textMuted, marginTop: 1 }}>{m.role || 'Employee'} · {m.employee_code}</div>
+                <div style={{ fontSize: 10, color: textMuted, marginTop: 1 }}>{m.position || 'Employee'} · {m.employee_code}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: onDuty ? '#22c55e' : '#94a3b8' }} />
