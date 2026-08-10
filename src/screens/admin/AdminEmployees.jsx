@@ -8,6 +8,8 @@ export default function AdminEmployees() {
   const { profile } = useAuth()
   const [rows, setRows] = useState([])
   const [showAdd, setShowAdd] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [deleting, setDeleting] = useState(null)
   const [attToday, setAttToday] = useState([])
   const [onLeaveToday, setOnLeaveToday] = useState(0)
   const [loadErr, setLoadErr] = useState('')
@@ -107,8 +109,18 @@ export default function AdminEmployees() {
                 <td style={td}><span style={chip('#DCFCE7', '#15803d')}>● Active</span></td>
                 <td style={{ ...td, color: '#64748b', fontSize: 11, fontFamily: 'monospace' }}>{r.employee_code}</td>
                 <td style={td}>
-                  <button style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', marginRight: 8 }}>👁</button>
-                  <button style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>🗑</button>
+                  <button
+                    title="Edit employee"
+                    onClick={() => setEditing(r)}
+                    style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', marginRight: 6, fontSize: 15 }}
+                  >✎</button>
+                  {r.id !== profile?.id && (
+                    <button
+                      title="Delete employee"
+                      onClick={() => setDeleting(r)}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 15 }}
+                    >🗑</button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -117,6 +129,8 @@ export default function AdminEmployees() {
       </div>
 
       {showAdd && <AddEmployeeModal onClose={() => setShowAdd(false)} onCreated={() => { setShowAdd(false); load() }} />}
+      {editing && <EditEmployeeModal employee={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} />}
+      {deleting && <DeleteEmployeeDialog employee={deleting} onClose={() => setDeleting(null)} onDeleted={() => { setDeleting(null); load() }} />}
     </div>
   )
 }
@@ -293,4 +307,152 @@ function formatUsPhone(raw) {
   if (digits.length <= 3) return `(${digits}`
   if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+}
+
+// ─── Edit employee modal ──────────────────────────────────────────────
+
+function EditEmployeeModal({ employee, onClose, onSaved }) {
+  const [fullName, setFullName] = useState(employee.full_name || '')
+  const [position, setPosition] = useState(employee.position || '')
+  const [phone, setPhone] = useState(employee.phone || '')
+  const [isAdmin, setIsAdmin] = useState(!!employee.is_admin)
+  const initialSched = parseSchedule(employee.schedule)
+  const [shiftStart, setShiftStart] = useState(initialSched.start)
+  const [shiftEnd, setShiftEnd] = useState(initialSched.end)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!fullName.trim()) { setErr('Full name is required.'); return }
+    if (shiftStart && shiftEnd && shiftStart >= shiftEnd) { setErr('Shift end must be after shift start.'); return }
+    setBusy(true); setErr('')
+    try {
+      const schedule = shiftStart && shiftEnd ? `${shiftStart}-${shiftEnd}` : null
+      const { error } = await supabase.from('profiles').update({
+        full_name: fullName.trim(),
+        position: position.trim() || null,
+        phone: phone.trim() || null,
+        schedule,
+        is_admin: isAdmin,
+      }).eq('id', employee.id)
+      if (error) throw error
+      onSaved()
+    } catch (e) { setErr(e.message || 'Update failed.') }
+    setBusy(false)
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20, backdropFilter: 'blur(4px)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>Edit employee</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 20 }}>✕</button>
+        </div>
+        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 18 }}>
+          <b>{employee.employee_code}</b> · Login ID and PIN can only be changed by creating a new account.
+        </div>
+
+        <form onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
+          <Field label="FULL NAME *" value={fullName} onChange={setFullName} autoFocus />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Field label="POSITION" value={position} onChange={setPosition} placeholder="e.g. Foreman" />
+            <Field
+              label="PHONE (US)"
+              value={phone}
+              onChange={(v) => setPhone(formatUsPhone(v))}
+              placeholder="(555) 123-4567"
+            />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <TimeField label="SHIFT START (CLOCK IN)" value={shiftStart} onChange={setShiftStart} />
+            <TimeField label="SHIFT END (CLOCK OUT)" value={shiftEnd} onChange={setShiftEnd} />
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#334155', fontWeight: 600, cursor: 'pointer', marginTop: 4 }}>
+            <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
+            Admin (can access /admin dashboard)
+          </label>
+
+          {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
+            <button type="button" onClick={onClose} style={btnGhost}>Cancel</button>
+            <button type="submit" disabled={busy} style={{ ...btnPrimary, opacity: busy ? 0.6 : 1 }}>
+              {busy ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function parseSchedule(s) {
+  if (!s || typeof s !== 'string') return { start: '08:00', end: '17:00' }
+  const m = s.match(/^(\d{2}:\d{2})-(\d{2}:\d{2})$/)
+  return m ? { start: m[1], end: m[2] } : { start: '08:00', end: '17:00' }
+}
+
+// ─── Delete confirmation dialog ───────────────────────────────────────
+
+function DeleteEmployeeDialog({ employee, onClose, onDeleted }) {
+  const [confirm, setConfirm] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const expected = employee.employee_code || employee.full_name
+
+  const submit = async () => {
+    if (confirm.trim().toUpperCase() !== String(expected).toUpperCase()) {
+      setErr(`Type "${expected}" to confirm.`); return
+    }
+    setBusy(true); setErr('')
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-employee', {
+        body: { id: employee.id },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      onDeleted()
+    } catch (e) { setErr(e.message || 'Delete failed.') }
+    setBusy(false)
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20, backdropFilter: 'blur(4px)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: '#FEE2E2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>⚠</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>Delete employee</div>
+        </div>
+        <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.5, marginBottom: 14 }}>
+          This permanently removes <b>{employee.full_name}</b> ({employee.employee_code}). Their login, profile, past attendance links, and payslip records will be affected. This can't be undone.
+        </div>
+        <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, letterSpacing: .4, marginBottom: 4 }}>
+          Type <code style={{ background: '#f1f5f9', padding: '1px 6px', borderRadius: 4, color: '#0f172a' }}>{expected}</code> to confirm:
+        </div>
+        <input
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          autoFocus
+          style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1.5px solid #FCA5A5', borderRadius: 8, fontSize: 13, outline: 'none', color: '#0f172a', background: '#fff', fontWeight: 600, letterSpacing: 1 }}
+        />
+
+        {err && <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+          <button type="button" onClick={onClose} style={btnGhost}>Cancel</button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={busy}
+            style={{
+              padding: '10px 16px', borderRadius: 10, border: 'none',
+              background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 800,
+              cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1,
+            }}
+          >{busy ? 'Deleting…' : 'Permanently delete'}</button>
+        </div>
+      </div>
+    </div>
+  )
 }
