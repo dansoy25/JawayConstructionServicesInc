@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import Shell from './components/Shell'
@@ -49,11 +49,12 @@ function Loading() {
 
 function useBrokenSessionCleanup() {
   const { session, profile, loading, signOut } = useAuth()
+  const nav = useNavigate()
   useEffect(() => {
     if (!loading && session && !profile) {
-      signOut()
+      signOut().then(() => nav('/login?e=no-profile', { replace: true }))
     }
-  }, [loading, session, profile, signOut])
+  }, [loading, session, profile, signOut, nav])
 }
 
 function Protected({ children, requireAdmin }) {

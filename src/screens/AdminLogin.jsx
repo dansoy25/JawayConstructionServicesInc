@@ -1,10 +1,21 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link, Navigate } from 'react-router-dom'
+import { useNavigate, Link, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+
+const ERROR_BANNERS = {
+  'no-profile': {
+    title: 'This account has no employee profile',
+    body: 'You were signed out because your login exists but no employee record is linked to it. Ask your administrator to add you in the Employees dashboard, then try again.',
+  },
+}
 
 export default function AdminLogin() {
   const { signInWithPin, session } = useAuth()
   const nav = useNavigate()
+  const location = useLocation()
+  const errorCode = new URLSearchParams(location.search).get('e')
+  const banner = errorCode ? ERROR_BANNERS[errorCode] : null
+
   const [companyCode, setCompanyCode] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -167,6 +178,17 @@ export default function AdminLogin() {
           </div>
           <div style={{ fontSize: 32, fontWeight: 800, color: '#f1f5f9', letterSpacing: -.8 }}>Welcome back</div>
           <div style={{ fontSize: 14, color: '#64748b', marginTop: 6 }}>Enter your credentials to start your shift.</div>
+
+          {banner && (
+            <div style={{
+              marginTop: 20, padding: '12px 14px', borderRadius: 12,
+              background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.3)',
+              color: '#fca5a5',
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 800 }}>⚠ {banner.title}</div>
+              <div style={{ fontSize: 11, marginTop: 4, lineHeight: 1.4 }}>{banner.body}</div>
+            </div>
+          )}
 
           {/* SSO */}
           <div style={{ marginTop: 28, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
