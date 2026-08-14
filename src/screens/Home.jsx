@@ -147,9 +147,8 @@ export default function Home() {
       </div>
 
       {/* Quick actions */}
-      <div style={{ marginTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginTop: 14 }}>
         <div style={{ fontWeight: 800, fontSize: 14, color: textPrimary }}>Quick actions</div>
-        <div style={{ fontSize: 11, color: textMuted, fontWeight: 700 }}>View all ›</div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginTop: 8 }}>
         <QuickTile to="/overtime" gradient="linear-gradient(145deg,#fde9c8,#f8c471)" color="#5c3a0d" iconColor="#a16207" label="Overtime" icon={<path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/>} />

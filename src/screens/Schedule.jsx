@@ -55,14 +55,9 @@ export default function Schedule() {
 
   return (
     <div style={{ background: bg, minHeight: '100%', padding: '8px 20px 0', fontFamily: "'Inter',system-ui,sans-serif" }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 4px' }}>
-        <div>
-          <div style={{ fontSize: 10, color: textMuted, fontWeight: 600, letterSpacing: .4 }}>{today.toLocaleDateString('en', { month: 'long', year: 'numeric' }).toUpperCase()}</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: textPrimary }}>My Schedule</div>
-        </div>
-        <button style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#22c55e,#16a34a)', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px rgba(34,197,94,.3)' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
+      <div style={{ padding: '16px 4px' }}>
+        <div style={{ fontSize: 10, color: textMuted, fontWeight: 600, letterSpacing: .4 }}>{today.toLocaleDateString('en', { month: 'long', year: 'numeric' }).toUpperCase()}</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: textPrimary }}>My Schedule</div>
       </div>
 
       {/* 14-day scroller — horizontally swipeable */}
