@@ -22,12 +22,21 @@ function SitesPanel({ orgId }) {
   const [sites, setSites] = useState([])
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
+  const [deleting, setDeleting] = useState(null)
 
   const load = () => {
     if (!orgId) return
     supabase.from('sites').select('*').eq('org_id', orgId).order('name').then(({ data }) => setSites(data || []))
   }
   useEffect(() => { load() }, [orgId])
+
+  const doDelete = async () => {
+    if (!deleting) return
+    await supabase.from('profiles').update({ site_id: null }).eq('site_id', deleting.id)
+    await supabase.from('sites').delete().eq('id', deleting.id)
+    setDeleting(null)
+    load()
+  }
 
   return (
     <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden' }}>
@@ -51,7 +60,12 @@ function SitesPanel({ orgId }) {
                   {Number(s.lat).toFixed(5)}, {Number(s.lng).toFixed(5)} · {s.radius_m || 100}m radius
                 </div>
               </div>
-              <button onClick={() => setEditing(s)} style={{ ...btnGhost, padding: '6px 12px', fontSize: 11 }}>Edit</button>
+              <button onClick={() => setEditing(s)} style={{ ...btnGhost, padding: '6px 12px', fontSize: 11 }}>✎ Edit</button>
+              <button
+                onClick={() => setDeleting(s)}
+                title="Delete site"
+                style={{ padding: '6px 12px', fontSize: 11, borderRadius: 8, border: '1px solid #FCA5A5', background: '#fff', color: '#dc2626', fontWeight: 700, cursor: 'pointer' }}
+              >🗑 Delete</button>
             </div>
           ))}
         </div>
@@ -59,6 +73,23 @@ function SitesPanel({ orgId }) {
 
       {editing && <SiteEditorModal site={editing} orgId={orgId} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} />}
       {adding && <SiteEditorModal site={null} orgId={orgId} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load() }} />}
+      {deleting && (
+        <div onClick={() => setDeleting(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 420, background: '#fff', borderRadius: 16, padding: 22, boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#FEE2E2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>⚠</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>Delete "{deleting.name}"?</div>
+            </div>
+            <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.5, marginBottom: 14 }}>
+              Any employees assigned to this site will be unassigned. This can't be undone.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setDeleting(null)} style={btnGhost}>Cancel</button>
+              <button onClick={doDelete} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Permanently delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -71,6 +102,11 @@ function SiteEditorModal({ site, orgId, onClose, onSaved }) {
   const [radius, setRadius] = useState(site?.radius_m || 100)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+
+  // Geocoding search state (OpenStreetMap Nominatim — no key required)
+  const [addressQuery, setAddressQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching] = useState(false)
 
   const [employees, setEmployees] = useState([])
   const [assigned, setAssigned] = useState(new Set())
@@ -100,6 +136,30 @@ function SiteEditorModal({ site, orgId, onClose, onSaved }) {
       if (next.has(id)) next.delete(id); else next.add(id)
       return next
     })
+  }
+
+  const searchAddress = async (e) => {
+    e?.preventDefault?.()
+    const q = addressQuery.trim()
+    if (!q) return
+    setSearching(true); setErr(''); setSearchResults([])
+    try {
+      // Nominatim public geocoder. Free and no key; keep query volume low.
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`
+      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } })
+      if (!res.ok) throw new Error(`Search failed (${res.status})`)
+      const data = await res.json()
+      setSearchResults(data || [])
+      if (!data?.length) setErr('No matches. Try a more specific address.')
+    } catch (e) { setErr(e.message || 'Address search failed.') }
+    setSearching(false)
+  }
+
+  const pickResult = (r) => {
+    setLat(Number(r.lat)); setLng(Number(r.lon))
+    if (!name.trim()) setName(r.display_name.split(',')[0])
+    setSearchResults([])
+    setAddressQuery(r.display_name)
   }
 
   const useMyLocation = () => {
@@ -152,6 +212,38 @@ function SiteEditorModal({ site, orgId, onClose, onSaved }) {
         </div>
 
         <form onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
+          <div style={{ position: 'relative' }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                  value={addressQuery}
+                  onChange={(e) => setAddressQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), searchAddress())}
+                  placeholder="Search address, e.g. 1234 King St W, Toronto"
+                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 13 }}
+                />
+                {addressQuery && (
+                  <button type="button" onClick={() => { setAddressQuery(''); setSearchResults([]) }}
+                    style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                )}
+              </div>
+              <button type="button" onClick={searchAddress} disabled={searching} style={{ ...btnGhost, padding: '10px 14px', fontSize: 12, opacity: searching ? .6 : 1 }}>
+                {searching ? 'Searching…' : '🔍 Find'}
+              </button>
+            </div>
+            {searchResults.length > 0 && (
+              <div style={{ position: 'absolute', top: 46, left: 0, right: 0, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 10, maxHeight: 220, overflowY: 'auto' }}>
+                {searchResults.map((r) => (
+                  <button key={`${r.place_id}`} type="button" onClick={() => pickResult(r)}
+                    style={{ width: '100%', textAlign: 'left', padding: '10px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: 12, color: '#0f172a' }}>
+                    📍 {r.display_name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <MapView
             center={[Number(lat), Number(lng)]}
             radiusM={Number(radius)}
