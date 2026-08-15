@@ -41,8 +41,11 @@ function SitesPanel({ orgId }) {
   return (
     <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden' }}>
       <div style={{ padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>Worksites & geofences</div>
-        <button onClick={() => setAdding(true)} style={btnPrimary}>+ Add site</button>
+        <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>Worksites & geofences <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginLeft: 6 }}>{sites.length}</span></div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={load} style={btnGhost}>↻ Refresh</button>
+          <button onClick={() => setAdding(true)} style={btnPrimary}>+ Add site</button>
+        </div>
       </div>
 
       {sites.length === 0 ? (

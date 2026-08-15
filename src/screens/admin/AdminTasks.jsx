@@ -77,6 +77,7 @@ export default function AdminTasks() {
         sub={`${total} open · ${doneWeek} completed this week`}
         actions={<>
           <button onClick={() => openCreate('todo')} style={btnPrimary}>+ Create task</button>
+          <button onClick={load} style={btnGhost}>↻ Refresh</button>
           <button onClick={doExportCsv} style={btnGhost}>⬇ CSV</button>
         </>}
       />

@@ -66,6 +66,7 @@ export default function AdminLeave() {
         sub={`${pending.length} pending · ${approvedThisMonth} approved this month`}
         actions={<>
           <button onClick={() => setManageOpen(true)} style={btnPrimary}>≡ Leave types</button>
+          <button onClick={load} style={btnGhost}>↻ Refresh</button>
           <button onClick={doExportCsv} style={btnGhost}>⬇ CSV</button>
           <button onClick={printPage} style={btnGhost}>📄 PDF</button>
         </>}
