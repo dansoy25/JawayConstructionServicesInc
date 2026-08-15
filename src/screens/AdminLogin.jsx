@@ -22,7 +22,6 @@ export default function AdminLogin() {
   const [remember, setRemember] = useState(true)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
-  const [toast, setToast] = useState('')
   const [now, setNow] = useState(new Date())
 
   useEffect(() => {
@@ -46,11 +45,6 @@ export default function AdminLogin() {
       setErr(error.message || 'Sign-in failed.')
     }
     setBusy(false)
-  }
-
-  const showSSOToast = (provider) => {
-    setToast(`${provider} sign-in coming soon.`)
-    setTimeout(() => setToast(''), 2400)
   }
 
   return (
@@ -230,7 +224,6 @@ export default function AdminLogin() {
             </div>
 
             {err && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 12, background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.3)', color: '#fca5a5', fontSize: 12, fontWeight: 600 }}>{err}</div>}
-            {toast && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 12, background: 'rgba(59,130,246,.1)', border: '1px solid rgba(59,130,246,.3)', color: '#93c5fd', fontSize: 12, fontWeight: 600, textAlign: 'center' }}>{toast}</div>}
 
             <button type="submit" disabled={busy} className="ts-btn-primary-d" style={{
               width: '100%', background: 'linear-gradient(135deg,#2563eb,#0ea5e9)', color: '#fff', border: 'none',
@@ -261,9 +254,3 @@ export default function AdminLogin() {
   )
 }
 
-const ssoBtn = {
-  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-  background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)',
-  borderRadius: 12, padding: 12, color: '#e2e8f0', fontFamily: 'inherit',
-  fontSize: 13, fontWeight: 700, cursor: 'pointer',
-}
