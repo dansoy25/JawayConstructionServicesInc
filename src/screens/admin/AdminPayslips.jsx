@@ -40,15 +40,55 @@ export default function AdminPayslips() {
   }
   useEffect(load, [profile?.org_id])
 
-  // Send latest un-sent payslip to an employee (marks it sent + fulfils any pending request).
+  // Send latest un-sent payslip. Before marking sent, refresh the deduction
+  // amounts from the employee's current profile so what the employee sees
+  // matches the numbers the admin set on their profile.
   const sendPayslip = async (empId) => {
     const target = payslips.find((p) => p.profile_id === empId && !p.sent_at)
     if (!target) { alert('This employee has no un-sent payslip. Run a payroll first.'); return }
-    await supabase.from('payslips').update({ sent_at: new Date().toISOString(), sent_by: profile?.id }).eq('id', target.id)
+    // Pull the live per-employee tax amounts so the payslip reflects any
+    // profile changes the admin made after the payroll run was created.
+    const { data: emp } = await supabase.from('profiles')
+      .select('cpp_amount, ei_amount, federal_tax_amount, provincial_tax_amount')
+      .eq('id', empId).maybeSingle()
+    if (emp) {
+      const cpp = Number(emp.cpp_amount || 0)
+      const ei = Number(emp.ei_amount || 0)
+      const fed = Number(emp.federal_tax_amount || 0)
+      const prov = Number(emp.provincial_tax_amount || 0)
+      const totalDed = cpp + ei + fed + prov
+      const gross = Number(target.gross || 0)
+      const net = gross - totalDed
+      await supabase.from('payslips').update({
+        deductions: { cpp, ei, federal_tax: fed, provincial_tax: prov },
+        net,
+        sent_at: new Date().toISOString(),
+        sent_by: profile?.id,
+      }).eq('id', target.id)
+    } else {
+      await supabase.from('payslips').update({ sent_at: new Date().toISOString(), sent_by: profile?.id }).eq('id', target.id)
+    }
     // Auto-fulfil any pending request for this employee.
     await supabase.from('payslip_requests')
       .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString(), fulfilled_by: profile?.id })
       .eq('org_id', profile.org_id).eq('profile_id', empId).eq('status', 'pending')
+    load()
+  }
+
+  // Recompute deductions & net for an ALREADY sent payslip using current profile amounts.
+  const resyncPayslip = async (p) => {
+    const { data: emp } = await supabase.from('profiles')
+      .select('cpp_amount, ei_amount, federal_tax_amount, provincial_tax_amount')
+      .eq('id', p.profile_id).maybeSingle()
+    if (!emp) return
+    const cpp = Number(emp.cpp_amount || 0)
+    const ei = Number(emp.ei_amount || 0)
+    const fed = Number(emp.federal_tax_amount || 0)
+    const prov = Number(emp.provincial_tax_amount || 0)
+    const net = Number(p.gross || 0) - (cpp + ei + fed + prov)
+    await supabase.from('payslips').update({
+      deductions: { cpp, ei, federal_tax: fed, provincial_tax: prov }, net,
+    }).eq('id', p.id)
     load()
   }
   const denyRequest = async (id) => {
@@ -199,7 +239,15 @@ export default function AdminPayslips() {
                     }
                     if (r.count > 0) {
                       const lastSent = payslips.find((p) => p.profile_id === r.id && p.sent_at)
-                      return <span style={{ color: '#15803d', fontSize: 10, fontWeight: 700 }}>{lastSent ? `✓ Sent ${new Date(lastSent.sent_at).toLocaleDateString('en-CA')}` : '—'}</span>
+                      if (lastSent) {
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ color: '#15803d', fontSize: 10, fontWeight: 700 }}>✓ Sent {new Date(lastSent.sent_at).toLocaleDateString('en-CA')}</span>
+                            <button onClick={() => resyncPayslip(lastSent)} title="Recalc deductions from current profile" style={{ background: 'none', border: '1px solid #cbd5e1', color: '#64748b', fontSize: 9, fontWeight: 700, borderRadius: 4, padding: '2px 6px', cursor: 'pointer' }}>↻ Resync</button>
+                          </div>
+                        )
+                      }
+                      return <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span>
                     }
                     return <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span>
                   })()}

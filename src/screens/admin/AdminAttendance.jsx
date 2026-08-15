@@ -18,6 +18,7 @@ export default function AdminAttendance() {
   const [deptFilter, setDeptFilter] = useState('all')          // all | <position>
   const [search, setSearch] = useState('')
   const [sites, setSites] = useState([])
+  const [manualOpen, setManualOpen] = useState(false)
 
   const load = async () => {
     if (!profile?.org_id) return
@@ -178,6 +179,7 @@ export default function AdminAttendance() {
               >{v === 'table' ? '⊞ Table' : '▦ Map'}</button>
             ))}
           </div>
+          <button onClick={() => setManualOpen(true)} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Manual entry</button>
           <button onClick={load} style={btnGhost}>↻ Refresh</button>
           <button onClick={doExportCsv} style={btnGhost}>⬇ CSV</button>
           <button onClick={printPage} style={btnGhost}>📄 PDF</button>
@@ -324,6 +326,7 @@ export default function AdminAttendance() {
         )}
       </div>
 
+      {manualOpen && <ManualAttendanceModal orgId={profile?.org_id} employees={employees} sites={sites} onClose={() => setManualOpen(false)} onSaved={() => { setManualOpen(false); load() }} />}
       {editing && <EditAttendanceModal row={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} />}
       {deleting && <DeleteAttendanceDialog row={deleting} onClose={() => setDeleting(null)} onDeleted={() => { setDeleting(null); load() }} />}
     </div>
@@ -441,6 +444,107 @@ function DeleteAttendanceDialog({ row, onClose, onDeleted }) {
     </div>
   )
 }
+
+function ManualAttendanceModal({ orgId, employees, sites, onClose, onSaved }) {
+  const [profileId, setProfileId] = useState(employees[0]?.id || '')
+  const [workDate, setWorkDate] = useState(new Date().toISOString().slice(0, 10))
+  const [clockIn, setClockIn] = useState(`${new Date().toISOString().slice(0, 10)}T08:00`)
+  const [clockOut, setClockOut] = useState(`${new Date().toISOString().slice(0, 10)}T17:00`)
+  const [otHours, setOtHours] = useState('')
+  const [siteId, setSiteId] = useState('')
+  const [notes, setNotes] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!profileId) { setErr('Pick an employee.'); return }
+    setBusy(true); setErr('')
+    try {
+      const ci = clockIn ? new Date(clockIn).toISOString() : null
+      const co = clockOut ? new Date(clockOut).toISOString() : null
+      const hours = ci && co ? Math.max(0, (new Date(co) - new Date(ci)) / 3600000) : null
+      const ot = Number(otHours) || (hours ? Math.max(0, hours - 8) : 0)
+      const { error } = await supabase.from('attendance').insert({
+        profile_id: profileId, org_id: orgId,
+        site_id: siteId || null,
+        work_date: workDate,
+        clock_in: ci, clock_out: co,
+        hours: hours != null ? Number(hours.toFixed(2)) : null,
+        ot_hours: ot,
+        ot_approved: ot > 0,           // manual entries are pre-approved by admin
+        ot_approved_at: ot > 0 ? new Date().toISOString() : null,
+        method: 'MANUAL', status: 'present',
+        notes: notes || null,
+      })
+      if (error) throw error
+      onSaved()
+    } catch (e) { setErr(e.message || 'Save failed.') }
+    setBusy(false)
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20, backdropFilter: 'blur(4px)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 500, background: '#fff', borderRadius: 16, padding: 22, boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>Manual attendance entry</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 20 }}>✕</button>
+        </div>
+        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>
+          Log attendance for an employee who forgot to clock in / out. OT hours entered here are auto-approved.
+        </div>
+        <form onSubmit={submit} style={{ display: 'grid', gap: 10 }}>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span style={mFieldLbl}>EMPLOYEE *</span>
+            <select value={profileId} onChange={(e) => setProfileId(e.target.value)} required style={mInputBox}>
+              <option value="">— Choose —</option>
+              {employees.map((e) => <option key={e.id} value={e.id}>{e.full_name} · {e.employee_code}</option>)}
+            </select>
+          </label>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span style={mFieldLbl}>WORK DATE *</span>
+            <input type="date" value={workDate} onChange={(e) => setWorkDate(e.target.value)} required style={mInputBox} />
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <label style={{ display: 'grid', gap: 4 }}>
+              <span style={mFieldLbl}>TIME IN</span>
+              <input type="datetime-local" value={clockIn} onChange={(e) => setClockIn(e.target.value)} style={mInputBox} />
+            </label>
+            <label style={{ display: 'grid', gap: 4 }}>
+              <span style={mFieldLbl}>TIME OUT</span>
+              <input type="datetime-local" value={clockOut} onChange={(e) => setClockOut(e.target.value)} style={mInputBox} />
+            </label>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <label style={{ display: 'grid', gap: 4 }}>
+              <span style={mFieldLbl}>OT HOURS (blank = auto from time in/out)</span>
+              <input value={otHours} onChange={(e) => setOtHours(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="e.g. 2" inputMode="decimal" style={mInputBox} />
+            </label>
+            <label style={{ display: 'grid', gap: 4 }}>
+              <span style={mFieldLbl}>SITE</span>
+              <select value={siteId} onChange={(e) => setSiteId(e.target.value)} style={mInputBox}>
+                <option value="">(no site)</option>
+                {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </label>
+          </div>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span style={mFieldLbl}>NOTE (optional)</span>
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Missed clock-out, entered by admin" style={mInputBox} />
+          </label>
+          {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+            <button type="button" onClick={onClose} style={btnGhost}>Cancel</button>
+            <button type="submit" disabled={busy} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', opacity: busy ? .6 : 1 }}>{busy ? 'Saving…' : 'Add attendance'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+const mInputBox = { padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none', color: '#0f172a', background: '#fff', fontWeight: 600, width: '100%', boxSizing: 'border-box' }
+const mFieldLbl = { fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4 }
 
 function ClickableStat({ label, value, sub, accent, active, onClick }) {
   const clickable = typeof onClick === 'function'

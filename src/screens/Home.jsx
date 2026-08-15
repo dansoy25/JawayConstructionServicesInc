@@ -10,14 +10,29 @@ export default function Home() {
   const { theme, toggle } = useTheme()
   const dark = theme === 'dark'
   const [today, setToday] = useState(null)
+  const [tasks, setTasks] = useState([])
 
   const refresh = async () => {
     if (!profile?.id) return
     const d = manilaToday()
     const { data } = await supabase.from('attendance').select('*').eq('profile_id', profile.id).eq('work_date', d).maybeSingle()
     setToday(data)
+    // Tasks assigned to this employee, newest-first, unfinished on top.
+    const { data: taskRows } = await supabase.from('tasks')
+      .select('id, title, description, status, priority, due_date, created_at')
+      .eq('assignee_id', profile.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    setTasks(taskRows || [])
   }
   useEffect(() => { refresh() }, [profile?.id])
+
+  const openTasks = tasks.filter((t) => t.status !== 'done')
+  const advanceTask = async (t) => {
+    const next = t.status === 'todo' ? 'in_progress' : t.status === 'in_progress' ? 'done' : 'todo'
+    await supabase.from('tasks').update({ status: next }).eq('id', t.id)
+    refresh()
+  }
 
   const onDuty = today?.clock_in && !today?.clock_out
 
@@ -200,6 +215,47 @@ export default function Home() {
             <div style={{ fontSize: 9, fontWeight: 700, color: textMuted, background: dark ? 'rgba(255,255,255,.06)' : '#f1f5f9', padding: '3px 7px', borderRadius: 99 }}>{shiftOutLabel}</div>
           </div>
         </div>
+      </div>
+
+      {/* Tasks from admin */}
+      <div style={{ marginTop: 12, background: cardBg, border: cardBorder, borderRadius: 16, padding: '12px', boxShadow: '0 4px 12px rgba(0,0,0,.15)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 13, color: textPrimary }}>Tasks from admin</div>
+            <div style={{ fontSize: 10, color: textMuted }}>{openTasks.length} open · {tasks.length - openTasks.length} done</div>
+          </div>
+          {openTasks.length > 0 && (
+            <span style={{ background: '#dc2626', color: '#fff', fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 999 }}>{openTasks.length}</span>
+          )}
+        </div>
+        {tasks.length === 0 ? (
+          <div style={{ padding: 14, textAlign: 'center', fontSize: 11, color: textMuted }}>
+            No tasks assigned yet. Your admin can send you tasks from their dashboard.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {tasks.slice(0, 5).map((t) => {
+              const pri = { urgent: '#dc2626', high: '#dc2626', medium: '#f59e0b', low: '#2563eb' }[t.priority || 'medium'] || '#94a3b8'
+              const done = t.status === 'done'
+              const nextLabel = t.status === 'todo' ? '▶ Start' : t.status === 'in_progress' ? '✓ Done' : '↻ Reopen'
+              return (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: dark ? 'rgba(255,255,255,.03)' : '#f8fafc', borderRadius: 10 }}>
+                  <div style={{ width: 4, height: 30, borderRadius: 2, background: pri }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: textPrimary, textDecoration: done ? 'line-through' : 'none' }}>{t.title}</div>
+                    <div style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>
+                      {t.due_date ? `Due ${new Date(t.due_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}` : 'No due date'} · {(t.priority || 'medium').toUpperCase()}
+                    </div>
+                  </div>
+                  <button onClick={() => advanceTask(t)} style={{ background: 'transparent', border: `1px solid ${pri}`, color: pri, fontSize: 10, fontWeight: 800, borderRadius: 6, padding: '4px 8px', cursor: 'pointer' }}>{nextLabel}</button>
+                </div>
+              )
+            })}
+            {tasks.length > 5 && (
+              <div style={{ textAlign: 'center', fontSize: 10, color: textMuted, paddingTop: 4 }}>+ {tasks.length - 5} more</div>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{ height: 20 }} />

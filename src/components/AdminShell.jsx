@@ -55,7 +55,7 @@ export default function AdminShell() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100dvh', background: '#f8fafc', fontFamily: "'Inter',system-ui,sans-serif" }}>
+    <div style={{ display: 'flex', minHeight: '100dvh', background: 'var(--app-bg, #f8fafc)', fontFamily: "'Inter',system-ui,sans-serif" }}>
       {/* Sidebar */}
       <aside style={{
         width: 240, flexShrink: 0,

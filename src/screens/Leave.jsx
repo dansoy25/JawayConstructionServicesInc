@@ -46,15 +46,23 @@ export default function Leave() {
     e.preventDefault()
     setBusy(true); setMsg('')
     try {
-      const days = Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1
+      let effectiveTypeId = typeId
+      if (!effectiveTypeId) {
+        const { data: fallback, error: ftErr } = await supabase.from('leave_types')
+          .insert({ org_id: profile.org_id, name: 'Personal Leave', code: 'PL', color: '#2563eb' })
+          .select().single()
+        if (ftErr) throw new Error(`Couldn't set up leave type: ${ftErr.message}`)
+        effectiveTypeId = fallback.id
+      }
+      const days = Math.max(1, Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1)
       const { error } = await supabase.from('leave_requests').insert({
-        profile_id: profile.id, org_id: profile.org_id, leave_type_id: typeId,
+        profile_id: profile.id, org_id: profile.org_id, leave_type_id: effectiveTypeId,
         date_from: start, date_to: end, days, reason, status: 'pending',
       })
       if (error) throw error
       setMsg('Request submitted.')
       setShowForm(false); setReason(''); load()
-    } catch (e) { setMsg(e.message) }
+    } catch (e) { setMsg(`Leave request failed: ${e.message || e}`) }
     setBusy(false)
   }
 
