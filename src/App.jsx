@@ -33,6 +33,7 @@ import AdminTasks from './screens/admin/AdminTasks'
 import AdminLeave from './screens/admin/AdminLeave'
 import AdminPayroll from './screens/admin/AdminPayroll'
 import AdminPayslips from './screens/admin/AdminPayslips'
+import AdminExpenses from './screens/admin/AdminExpenses'
 import AdminGps from './screens/admin/AdminGps'
 import AdminReports from './screens/admin/AdminReports'
 import AdminSettings from './screens/admin/AdminSettings'
@@ -95,6 +96,7 @@ export default function App() {
             <Route path="leave" element={<AdminLeave />} />
             <Route path="payroll" element={<AdminPayroll />} />
             <Route path="payslips" element={<AdminPayslips />} />
+            <Route path="expenses" element={<AdminExpenses />} />
             <Route path="gps" element={<AdminGps />} />
             <Route path="reports" element={<AdminReports />} />
             <Route path="settings" element={<AdminSettings />} />

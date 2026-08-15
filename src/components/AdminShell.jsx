@@ -23,6 +23,7 @@ const SECTIONS = [
     items: [
       { to: '/admin/payroll', label: 'Payroll', icon: <><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></> },
       { to: '/admin/payslips', label: 'Payslips', icon: <><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></> },
+      { to: '/admin/expenses', label: 'Receipts / Expenses', icon: <><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M8 4v4"/></> },
     ],
   },
   {

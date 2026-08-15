@@ -58,21 +58,19 @@ export default function AdminDashboard() {
     })()
   }, [profile?.org_id, scope, scopeRange])
 
-  // ─── Load attendance trend — reruns when 7D/30D toggle changes ─────
+  // ─── Load Expenses trend — daily $ totals for the selected window ────
   useEffect(() => {
     if (!profile?.org_id) return
     ;(async () => {
       const startDate = daysAgo(trendDays - 1)
-      const { data: emp } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('org_id', profile.org_id).eq('is_admin', false)
-      const totalEmp = Math.max(1, emp?.length || (await supabase.from('profiles').select('id').eq('org_id', profile.org_id).eq('is_admin', false)).data?.length || 1)
-      const { data: att } = await supabase.from('attendance').select('work_date, profile_id')
-        .eq('org_id', profile.org_id).gte('work_date', toIso(startDate))
-      const buckets = Array.from({ length: trendDays }, () => new Set())
-      for (const r of att || []) {
-        const idx = Math.max(0, Math.min(trendDays - 1, Math.floor((new Date(r.work_date) - startDate) / 86400000)))
-        buckets[idx].add(r.profile_id)
+      const { data: rows } = await supabase.from('expenses').select('spent_on, amount')
+        .eq('org_id', profile.org_id).gte('spent_on', toIso(startDate))
+      const buckets = Array.from({ length: trendDays }, () => 0)
+      for (const r of rows || []) {
+        const idx = Math.max(0, Math.min(trendDays - 1, Math.floor((new Date(r.spent_on) - startDate) / 86400000)))
+        buckets[idx] += Number(r.amount || 0)
       }
-      setTrend(buckets.map((s) => Math.round((s.size / totalEmp) * 100)))
+      setTrend(buckets)
     })()
   }, [profile?.org_id, trendDays])
 
@@ -122,8 +120,8 @@ export default function AdminDashboard() {
         <div style={card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>Attendance trend</div>
-              <div style={{ fontSize: 11, color: '#64748b' }}>Last {trendDays} days · % of team clocked in</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>Receipts / Expenses trend</div>
+              <div style={{ fontSize: 11, color: '#64748b' }}>Last {trendDays} days · daily spend</div>
             </div>
             <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 2, fontSize: 11 }}>
               {['7d', '30d'].map((k) => (
@@ -135,27 +133,40 @@ export default function AdminDashboard() {
               ))}
             </div>
           </div>
-          {trend.length > 1 ? (
+          {trend.length > 0 && trend.some((v) => v > 0) ? (
             <>
-              <svg width="100%" height="160" viewBox="0 0 400 160" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="trendFill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0" stopColor={accentColor} stopOpacity=".3"/>
-                    <stop offset="1" stopColor={accentColor} stopOpacity="0"/>
-                  </linearGradient>
-                </defs>
-                <path d={`M0,${160 - trend[0] * 1.4} ${trend.map((v, i) => `L${(i * 400) / (trend.length - 1)},${160 - v * 1.4}`).join(' ')} L400,160 L0,160 Z`} fill="url(#trendFill)"/>
-                <path d={`M0,${160 - trend[0] * 1.4} ${trend.map((v, i) => `L${(i * 400) / (trend.length - 1)},${160 - v * 1.4}`).join(' ')}`} stroke={accentColor} strokeWidth="2.5" fill="none"/>
-                {trend.map((v, i) => <circle key={i} cx={(i * 400) / (trend.length - 1)} cy={160 - v * 1.4} r="3" fill={accentColor}/>)}
-              </svg>
+              {(() => {
+                const maxV = Math.max(1, ...trend)
+                const y = (v) => 150 - (v / maxV) * 130
+                const w = trend.length > 1 ? 400 / (trend.length - 1) : 400
+                return (
+                  <svg width="100%" height="160" viewBox="0 0 400 160" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="expFill" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0" stopColor={accentColor} stopOpacity=".35"/>
+                        <stop offset="1" stopColor={accentColor} stopOpacity="0"/>
+                      </linearGradient>
+                    </defs>
+                    {trend.length > 1 && (
+                      <>
+                        <path d={`M0,${y(trend[0])} ${trend.map((v, i) => `L${i * w},${y(v)}`).join(' ')} L400,160 L0,160 Z`} fill="url(#expFill)"/>
+                        <path d={`M0,${y(trend[0])} ${trend.map((v, i) => `L${i * w},${y(v)}`).join(' ')}`} stroke={accentColor} strokeWidth="2.5" fill="none"/>
+                      </>
+                    )}
+                    {trend.map((v, i) => <circle key={i} cx={i * w} cy={y(v)} r="3" fill={accentColor}/>)}
+                  </svg>
+                )
+              })()}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#94a3b8', marginTop: 6 }}>
-                {trendScope === '7d'
-                  ? trendLabels.map((d, i) => <span key={i}>{d}</span>)
-                  : ['30d ago', '20d ago', '10d ago', 'Today'].map((d, i) => <span key={i}>{d}</span>)}
+                <span>Total: ${trend.reduce((s, v) => s + v, 0).toLocaleString('en-CA', { maximumFractionDigits: 0 })}</span>
+                <span>Peak: ${Math.max(...trend).toLocaleString('en-CA', { maximumFractionDigits: 0 })}</span>
               </div>
             </>
           ) : (
-            <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 12 }}>Loading trend…</div>
+            <div style={{ height: 160, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 12, gap: 6 }}>
+              <span>No receipts logged yet.</span>
+              <button onClick={() => nav('/admin/expenses')} style={{ ...pillBtn(), fontSize: 11 }}>+ Add receipt</button>
+            </div>
           )}
         </div>
 
@@ -193,6 +204,7 @@ export default function AdminDashboard() {
             { icon: '▶', label: 'Run payroll',   to: '/admin/payroll' },
             { icon: '＋', label: 'Create task',   to: '/admin/tasks' },
             { icon: '📍', label: 'Add worksite',  to: '/admin/gps' },
+            { icon: '🧾', label: 'Add expense',   to: '/admin/expenses' },
           ].map((a) => (
             <button
               key={a.label}

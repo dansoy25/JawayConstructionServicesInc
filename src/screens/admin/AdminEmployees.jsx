@@ -22,7 +22,7 @@ export default function AdminEmployees() {
     const today = new Date().toISOString().slice(0, 10)
     const [r, a, l] = await Promise.all([
       supabase.from('profiles')
-        .select('id, full_name, avatar_url, employee_code, is_admin, position, phone, schedule, daily_rate, cpp_rate, ei_rate, federal_tax_rate, provincial_tax_rate')
+        .select('id, full_name, avatar_url, employee_code, is_admin, position, phone, schedule, daily_rate, cpp_amount, ei_amount, federal_tax_amount, provincial_tax_amount, schedule_days, day_off')
         .eq('org_id', profile.org_id)
         .order('full_name'),
       supabase.from('attendance')
@@ -70,14 +70,15 @@ export default function AdminEmployees() {
           <button
             onClick={() => exportCsv(
               `employees-${todayStamp()}.csv`,
-              ['Employee ID', 'Full Name', 'Position', 'Phone', 'Role', 'Hourly Rate', 'Schedule', 'CPP %', 'EI %', 'Federal %', 'Provincial %'],
+              ['Employee ID', 'Full Name', 'Position', 'Phone', 'Role', 'Hourly Rate', 'Schedule', 'Work Days', 'Days Off', 'CPP $', 'EI $', 'Federal $', 'Provincial $'],
               visibleRows.map((r) => [
                 r.employee_code, r.full_name, r.position || '', r.phone || '',
                 r.is_admin ? 'Admin' : 'Employee', r.daily_rate || 0, r.schedule || '',
-                (Number(r.cpp_rate || 0) * 100).toFixed(2),
-                (Number(r.ei_rate || 0) * 100).toFixed(2),
-                (Number(r.federal_tax_rate || 0) * 100).toFixed(2),
-                (Number(r.provincial_tax_rate || 0) * 100).toFixed(2),
+                r.schedule_days || '', r.day_off || '',
+                Number(r.cpp_amount || 0).toFixed(2),
+                Number(r.ei_amount || 0).toFixed(2),
+                Number(r.federal_tax_amount || 0).toFixed(2),
+                Number(r.provincial_tax_amount || 0).toFixed(2),
               ]),
             )}
             style={btnGhost}
@@ -198,13 +199,14 @@ function AddEmployeeModal({ onClose, onCreated }) {
   const [shiftStart, setShiftStart] = useState('08:00')
   const [shiftEnd, setShiftEnd] = useState('17:00')
   const [loginAs, setLoginAs] = useState('employee') // 'employee' | 'admin'
-  // Manual per-employee tax overrides — stored as percent strings in the UI,
-  // converted to fractional numeric on save. Leave blank to fall back to
-  // org-wide defaults on the payroll page.
-  const [cppPct, setCppPct] = useState('')
-  const [eiPct, setEiPct] = useState('')
-  const [federalPct, setFederalPct] = useState('')
-  const [provincialPct, setProvincialPct] = useState('')
+  // Per-employee tax amounts in $ (dollars per pay period).
+  const [cppAmt, setCppAmt] = useState('')
+  const [eiAmt, setEiAmt] = useState('')
+  const [federalAmt, setFederalAmt] = useState('')
+  const [provincialAmt, setProvincialAmt] = useState('')
+  // Work schedule (days of week) + days off. Stored as CSV of 0..6 (Sun..Sat).
+  const [workDays, setWorkDays] = useState(new Set([1, 2, 3, 4, 5]))
+  const [daysOff, setDaysOff] = useState(new Set([0, 6]))
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [result, setResult] = useState(null)
@@ -217,7 +219,7 @@ function AddEmployeeModal({ onClose, onCreated }) {
     setBusy(true); setErr('')
     try {
       const schedule = shiftStart && shiftEnd ? `${shiftStart}-${shiftEnd}` : null
-      const pctToRate = (v) => (v === '' || v == null) ? undefined : Number(v) / 100
+      const toNum = (v) => (v === '' || v == null) ? undefined : Number(v)
       const { data, error } = await supabase.functions.invoke('create-employee', {
         body: {
           full_name: fullName.trim(),
@@ -232,15 +234,16 @@ function AddEmployeeModal({ onClose, onCreated }) {
       })
       if (error) throw error
       if (data?.error) throw new Error(data.error)
-      // Save per-employee tax overrides if any were provided.
-      const taxUpdate = {}
-      const cpp = pctToRate(cppPct); if (cpp !== undefined) taxUpdate.cpp_rate = cpp
-      const ei = pctToRate(eiPct); if (ei !== undefined) taxUpdate.ei_rate = ei
-      const fed = pctToRate(federalPct); if (fed !== undefined) taxUpdate.federal_tax_rate = fed
-      const prov = pctToRate(provincialPct); if (prov !== undefined) taxUpdate.provincial_tax_rate = prov
-      if (Object.keys(taxUpdate).length && data?.id) {
-        await supabase.from('profiles').update(taxUpdate).eq('id', data.id)
+      // Save per-employee tax amounts + schedule/days-off.
+      const update = {
+        schedule_days: [...workDays].sort().join(','),
+        day_off: [...daysOff].sort().join(','),
       }
+      const cpp = toNum(cppAmt); if (cpp !== undefined) update.cpp_amount = cpp
+      const ei = toNum(eiAmt); if (ei !== undefined) update.ei_amount = ei
+      const fed = toNum(federalAmt); if (fed !== undefined) update.federal_tax_amount = fed
+      const prov = toNum(provincialAmt); if (prov !== undefined) update.provincial_tax_amount = prov
+      if (data?.id) await supabase.from('profiles').update(update).eq('id', data.id)
       setResult(data)
     } catch (e) {
       setErr(e.message || 'Failed to create employee.')
@@ -294,11 +297,13 @@ function AddEmployeeModal({ onClose, onCreated }) {
               </div>
 
               <TaxFields
-                cpp={cppPct} setCpp={setCppPct}
-                ei={eiPct} setEi={setEiPct}
-                federal={federalPct} setFederal={setFederalPct}
-                provincial={provincialPct} setProvincial={setProvincialPct}
+                cpp={cppAmt} setCpp={setCppAmt}
+                ei={eiAmt} setEi={setEiAmt}
+                federal={federalAmt} setFederal={setFederalAmt}
+                provincial={provincialAmt} setProvincial={setProvincialAmt}
               />
+
+              <DaysPicker workDays={workDays} setWorkDays={setWorkDays} daysOff={daysOff} setDaysOff={setDaysOff} />
 
               {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
 
@@ -449,11 +454,17 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
   const [phone, setPhone] = useState(employee.phone || '')
   const [hourlyRate, setHourlyRate] = useState(employee.daily_rate ? String(employee.daily_rate) : '')
   const [loginAs, setLoginAs] = useState(employee.is_admin ? 'admin' : 'employee')
-  const rateToPct = (r) => (r == null || r === '' || Number(r) === 0) ? '' : String(Number(r) * 100)
-  const [cppPct, setCppPct] = useState(rateToPct(employee.cpp_rate))
-  const [eiPct, setEiPct] = useState(rateToPct(employee.ei_rate))
-  const [federalPct, setFederalPct] = useState(rateToPct(employee.federal_tax_rate))
-  const [provincialPct, setProvincialPct] = useState(rateToPct(employee.provincial_tax_rate))
+  const amtStr = (v) => (v == null || Number(v) === 0) ? '' : String(v)
+  const [cppAmt, setCppAmt] = useState(amtStr(employee.cpp_amount))
+  const [eiAmt, setEiAmt] = useState(amtStr(employee.ei_amount))
+  const [federalAmt, setFederalAmt] = useState(amtStr(employee.federal_tax_amount))
+  const [provincialAmt, setProvincialAmt] = useState(amtStr(employee.provincial_tax_amount))
+  const parseDaysCsv = (s, fallback) => {
+    if (!s) return new Set(fallback)
+    return new Set(String(s).split(',').map((n) => Number(n)).filter((n) => !isNaN(n)))
+  }
+  const [workDays, setWorkDays] = useState(parseDaysCsv(employee.schedule_days, [1, 2, 3, 4, 5]))
+  const [daysOff, setDaysOff] = useState(parseDaysCsv(employee.day_off, [0, 6]))
   const initialSched = parseSchedule(employee.schedule)
   const [shiftStart, setShiftStart] = useState(initialSched.start)
   const [shiftEnd, setShiftEnd] = useState(initialSched.end)
@@ -497,7 +508,7 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
     setBusy(true); setErr('')
     try {
       const schedule = shiftStart && shiftEnd ? `${shiftStart}-${shiftEnd}` : null
-      const pctToRate = (v) => (v === '' || v == null) ? 0 : Number(v) / 100
+      const toNum = (v) => (v === '' || v == null) ? 0 : Number(v)
       const { error } = await supabase.from('profiles').update({
         full_name: fullName.trim(),
         position: position.trim() || null,
@@ -505,10 +516,12 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
         schedule,
         daily_rate: hourlyRate ? Number(hourlyRate) : 0,
         is_admin: loginAs === 'admin',
-        cpp_rate: pctToRate(cppPct),
-        ei_rate: pctToRate(eiPct),
-        federal_tax_rate: pctToRate(federalPct),
-        provincial_tax_rate: pctToRate(provincialPct),
+        cpp_amount: toNum(cppAmt),
+        ei_amount: toNum(eiAmt),
+        federal_tax_amount: toNum(federalAmt),
+        provincial_tax_amount: toNum(provincialAmt),
+        schedule_days: [...workDays].sort().join(','),
+        day_off: [...daysOff].sort().join(','),
       }).eq('id', employee.id)
       if (error) throw error
       onSaved()
@@ -556,11 +569,13 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
           </div>
 
           <TaxFields
-            cpp={cppPct} setCpp={setCppPct}
-            ei={eiPct} setEi={setEiPct}
-            federal={federalPct} setFederal={setFederalPct}
-            provincial={provincialPct} setProvincial={setProvincialPct}
+            cpp={cppAmt} setCpp={setCppAmt}
+            ei={eiAmt} setEi={setEiAmt}
+            federal={federalAmt} setFederal={setFederalAmt}
+            provincial={provincialAmt} setProvincial={setProvincialAmt}
           />
+
+          <DaysPicker workDays={workDays} setWorkDays={setWorkDays} daysOff={daysOff} setDaysOff={setDaysOff} />
 
           {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
 
@@ -676,25 +691,26 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
 function TaxFields({ cpp, setCpp, ei, setEi, federal, setFederal, provincial, setProvincial }) {
   return (
     <div style={{ marginTop: 4, padding: 14, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10 }}>
-      <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', marginBottom: 2 }}>Manual tax rates (per employee)</div>
+      <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', marginBottom: 2 }}>Manual tax deductions (per pay period)</div>
       <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>
-        Overrides the org defaults on the payroll page. Leave blank (or 0) to inherit.
+        Dollar amounts deducted from every payroll run for this employee. Leave blank / 0 to skip.
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <PercentField label="CPP %" value={cpp} onChange={setCpp} />
-        <PercentField label="EI %" value={ei} onChange={setEi} />
-        <PercentField label="FEDERAL TAX %" value={federal} onChange={setFederal} />
-        <PercentField label="PROVINCIAL TAX %" value={provincial} onChange={setProvincial} />
+        <MoneyField label="CPP $" value={cpp} onChange={setCpp} />
+        <MoneyField label="EI $" value={ei} onChange={setEi} />
+        <MoneyField label="FEDERAL TAX $" value={federal} onChange={setFederal} />
+        <MoneyField label="PROVINCIAL TAX $" value={provincial} onChange={setProvincial} />
       </div>
     </div>
   )
 }
 
-function PercentField({ label, value, onChange }) {
+function MoneyField({ label, value, onChange }) {
   return (
     <div>
       <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4, marginBottom: 4 }}>{label}</div>
-      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff' }}>
+      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', paddingLeft: 12 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#64748b' }}>$</span>
         <input
           value={value}
           onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ''))}
@@ -702,7 +718,52 @@ function PercentField({ label, value, onChange }) {
           inputMode="decimal"
           style={{ flex: 1, boxSizing: 'border-box', padding: '10px 12px', border: 'none', outline: 'none', fontSize: 13, fontFamily: 'monospace', fontWeight: 700, color: '#0f172a', background: 'transparent' }}
         />
-        <span style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', paddingRight: 12 }}>%</span>
+      </div>
+    </div>
+  )
+}
+
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function DaysPicker({ workDays, setWorkDays, daysOff, setDaysOff }) {
+  const toggle = (setter, d, otherSet, otherSetter) => setter((prev) => {
+    const next = new Set(prev)
+    if (next.has(d)) next.delete(d); else {
+      next.add(d)
+      // Days can only be in one of the two lists.
+      if (otherSet.has(d)) {
+        const stripped = new Set(otherSet); stripped.delete(d); otherSetter(stripped)
+      }
+    }
+    return next
+  })
+
+  const chip = (d, on, kind) => ({
+    padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
+    border: on ? `2px solid ${kind === 'work' ? '#2563eb' : '#f59e0b'}` : '1px solid #e2e8f0',
+    background: on ? (kind === 'work' ? '#eff6ff' : '#fef3c7') : '#fff',
+    color: on ? (kind === 'work' ? '#1e40af' : '#a16207') : '#334155',
+    fontSize: 11, fontWeight: 700,
+  })
+
+  return (
+    <div style={{ marginTop: 4, padding: 14, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10 }}>
+      <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>Weekly schedule</div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4, marginBottom: 4 }}>WORK DAYS</div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        {DAY_LABELS.map((lbl, i) => (
+          <button key={i} type="button"
+            onClick={() => toggle(setWorkDays, i, daysOff, setDaysOff)}
+            style={chip(i, workDays.has(i), 'work')}>{lbl}</button>
+        ))}
+      </div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4, marginBottom: 4 }}>DAYS OFF</div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        {DAY_LABELS.map((lbl, i) => (
+          <button key={i} type="button"
+            onClick={() => toggle(setDaysOff, i, workDays, setWorkDays)}
+            style={chip(i, daysOff.has(i), 'off')}>{lbl}</button>
+        ))}
       </div>
     </div>
   )

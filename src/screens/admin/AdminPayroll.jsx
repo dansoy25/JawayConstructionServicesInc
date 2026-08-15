@@ -198,12 +198,12 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone, rates = DEFAU
     if (!orgId) return
     Promise.all([
       supabase.from('profiles')
-        .select('id, full_name, employee_code, position, daily_rate, schedule, cpp_rate, ei_rate, federal_tax_rate, provincial_tax_rate')
+        .select('id, full_name, employee_code, position, daily_rate, schedule, cpp_amount, ei_amount, federal_tax_amount, provincial_tax_amount')
         .eq('org_id', orgId)
         .eq('is_admin', false)
         .order('full_name'),
       supabase.from('attendance')
-        .select('profile_id, hours, clock_in, clock_out, work_date')
+        .select('profile_id, hours, clock_in, clock_out, work_date, ot_hours, ot_approved')
         .eq('org_id', orgId)
         .gte('work_date', periodStart)
         .lte('work_date', periodEnd),
@@ -221,23 +221,24 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone, rates = DEFAU
   const rows = useMemo(() => {
     return employees.filter((e) => selected.has(e.id)).map((e) => {
       const empAtt = attendance.filter((a) => a.profile_id === e.id && a.hours)
-      const actualHours = empAtt.reduce((s, a) => s + Number(a.hours || 0), 0)
-      const regularHours = actualHours > 0 ? Math.min(actualHours, 80) : 80 // 80h = 10d × 8h semi-monthly default
-      const otHours = Math.max(0, actualHours - 80)
+      // OT only counts if the admin approved it on the attendance row.
+      const otApprovedHours = empAtt
+        .filter((a) => a.ot_approved && Number(a.ot_hours || 0) > 0)
+        .reduce((s, a) => s + Number(a.ot_hours || 0), 0)
+      const totalHoursLogged = empAtt.reduce((s, a) => s + Number(a.hours || 0), 0)
+      const regularHours = Math.max(0, totalHoursLogged - otApprovedHours)
+      const otHours = otApprovedHours
       const rate = Number(e.daily_rate || 0)
       const basic = rate * regularHours
       const ot = rate * 1.5 * otHours
       const gross = basic + ot
-      // Per-employee override wins if > 0, otherwise the org default rate applies.
-      const pick = (empVal, orgVal) => (Number(empVal) > 0 ? Number(empVal) : Number(orgVal))
-      const cppR = pick(e.cpp_rate, rates.cpp)
-      const eiR = pick(e.ei_rate, rates.ei)
-      const fedR = pick(e.federal_tax_rate, rates.federal_tax)
-      const provR = pick(e.provincial_tax_rate, rates.provincial_tax)
-      const cpp = gross * cppR
-      const ei = gross * eiR
-      const fed = gross * fedR
-      const prov = gross * provR
+      // Per-employee fixed dollar deductions (per pay period). Fall back to
+      // org rate × gross if the admin hasn't set a fixed amount.
+      const pickAmt = (empAmt, orgRate) => (Number(empAmt) > 0 ? Number(empAmt) : gross * Number(orgRate || 0))
+      const cpp = pickAmt(e.cpp_amount, rates.cpp)
+      const ei = pickAmt(e.ei_amount, rates.ei)
+      const fed = pickAmt(e.federal_tax_amount, rates.federal_tax)
+      const prov = pickAmt(e.provincial_tax_amount, rates.provincial_tax)
       const deductions = cpp + ei + fed + prov
       const net = gross - deductions
       return { emp: e, rate, regularHours, otHours, basic, ot, gross, cpp, ei, fed, prov, deductions, net }

@@ -29,7 +29,7 @@ export default function AdminAttendance() {
         .eq('org_id', profile.org_id)
         .eq('is_admin', false),
       supabase.from('attendance')
-        .select('*, profile:profiles(full_name, avatar_url, position, employee_code, schedule), site:sites(name, lat, lng)')
+        .select('*, ot_hours, ot_approved, ot_approved_at, profile:profiles(full_name, avatar_url, position, employee_code, schedule, schedule_days, day_off), site:sites(name, lat, lng)')
         .eq('org_id', profile.org_id)
         .gte('work_date', addDays(today, -14))
         .order('work_date', { ascending: false })
@@ -39,7 +39,23 @@ export default function AdminAttendance() {
     if (emp.error) setLoadErr(emp.error.message)
     if (att.error) setLoadErr(att.error.message)
     setEmployees(emp.data || [])
-    setRows(att.data || [])
+    // Compute OT for any row that has clock-in/out but no OT logged yet.
+    // OT = hours over 8 per shift. Persist to DB so wizard sees it.
+    const raw = att.data || []
+    const needsOtWrite = []
+    for (const r of raw) {
+      const computed = r.hours ? Math.max(0, Number(r.hours) - 8) : 0
+      if (computed > 0 && !r.ot_hours) {
+        r.ot_hours = computed
+        needsOtWrite.push({ id: r.id, ot_hours: computed })
+      }
+    }
+    if (needsOtWrite.length) {
+      for (const u of needsOtWrite) {
+        await supabase.from('attendance').update({ ot_hours: u.ot_hours }).eq('id', u.id)
+      }
+    }
+    setRows(raw)
 
     // Load sites once for the map view
     const { data: siteRows } = await supabase.from('sites')
@@ -76,6 +92,32 @@ export default function AdminAttendance() {
       return true
     })
   }, [rows, statusFilter, deptFilter, search, employees])
+
+  // Employees expected today but with no clock-in row.
+  const today = new Date().toISOString().slice(0, 10)
+  const todayDow = new Date().getDay()
+  const absentToday = useMemo(() => {
+    const clockedInIds = new Set(rows.filter((r) => r.work_date === today && r.clock_in).map((r) => r.profile_id))
+    return employees.filter((e) => {
+      const workDays = (e.schedule_days || '1,2,3,4,5').split(',').map(Number)
+      return workDays.includes(todayDow) && !clockedInIds.has(e.id)
+    })
+  }, [rows, employees, today, todayDow])
+
+  const approveOt = async (row) => {
+    await supabase.from('attendance').update({
+      ot_approved: true,
+      ot_approved_at: new Date().toISOString(),
+      ot_approved_by: profile?.id,
+    }).eq('id', row.id)
+    load()
+  }
+  const revokeOt = async (row) => {
+    await supabase.from('attendance').update({
+      ot_approved: false, ot_approved_at: null, ot_approved_by: null,
+    }).eq('id', row.id)
+    load()
+  }
 
   const doExportCsv = () => {
     const headers = ['Employee', 'Employee ID', 'Position', 'Site', 'Date', 'Time In', 'Time Out', 'Hours', 'Status']
@@ -155,6 +197,27 @@ export default function AdminAttendance() {
         <StatTile label="AVG HOURS" value={stats.avgHours ? `${stats.avgHours.toFixed(1)}h` : '—'} sub="target: 8h" accent="#2563eb" />
       </div>
 
+      {absentToday.length > 0 && (
+        <div style={{ background: '#fff', border: '1px solid #FCA5A5', borderRadius: 14, padding: 16, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#dc2626' }} />
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>Absent today</div>
+            <span style={{ fontSize: 11, color: '#94a3b8' }}>{absentToday.length} employees</span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {absentToday.map((e) => (
+              <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#FEE2E2', borderRadius: 999 }}>
+                <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', color: '#b91c1c', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 9 }}>
+                  {initials(e.full_name || '?')}
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#b91c1c' }}>{e.full_name}</span>
+                <span style={{ fontSize: 10, color: '#b91c1c', opacity: .7 }}>· {e.employee_code}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden' }}>
         <div style={{ padding: 16, display: 'flex', gap: 12, alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 12px' }}>
@@ -185,11 +248,11 @@ export default function AdminAttendance() {
         <table style={table}>
           <thead>
             <tr>
-              {['EMPLOYEE','DATE','TIME IN','TIME OUT','HOURS','STATUS','GPS',''].map((h, i) => <th key={i} style={th}>{h}</th>)}
+              {['EMPLOYEE','DATE','TIME IN','TIME OUT','HOURS','OT','STATUS','GPS',''].map((h, i) => <th key={i} style={th}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {visibleRows.length === 0 && <tr><td colSpan="8" style={{ ...td, textAlign: 'center', padding: 30, color: '#94a3b8' }}>No records match the current filters.</td></tr>}
+            {visibleRows.length === 0 && <tr><td colSpan="9" style={{ ...td, textAlign: 'center', padding: 30, color: '#94a3b8' }}>No records match the current filters.</td></tr>}
             {visibleRows.map((r) => {
               const schedStart = parseScheduleStart(r.profile?.schedule) || { h: 8, m: 0 }
               const isLate = r.clock_in && (() => {
@@ -220,6 +283,22 @@ export default function AdminAttendance() {
                   <td style={{ ...td, fontFamily: 'monospace' }}>{r.clock_in ? fmtTime(r.clock_in) : '—'}</td>
                   <td style={{ ...td, fontFamily: 'monospace' }}>{r.clock_out ? fmtTime(r.clock_out) : '—'}</td>
                   <td style={{ ...td, fontFamily: 'monospace' }}>{r.hours ? `${Number(r.hours).toFixed(1)}h` : '—'}</td>
+                  <td style={td}>
+                    {Number(r.ot_hours || 0) > 0 ? (
+                      r.ot_approved ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <span style={chip('#DCFCE7', '#15803d')}>✓ {Number(r.ot_hours).toFixed(1)}h</span>
+                          <button onClick={() => revokeOt(r)} title="Revoke OT approval" style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 11 }}>↺</button>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => approveOt(r)}
+                          title="Approve OT for payroll"
+                          style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid #f59e0b', background: '#FEF3C7', color: '#a16207', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}
+                        >✓ Approve {Number(r.ot_hours).toFixed(1)}h</button>
+                      )
+                    ) : <span style={{ color: '#cbd5e1' }}>—</span>}
+                  </td>
                   <td style={td}><span style={chip(status.bg, status.color)}>● {status.label}</span></td>
                   <td style={td}><span style={{ color: '#2563eb', fontWeight: 600, fontSize: 11 }}>📍 {r.site?.name || 'Field'}</span></td>
                   <td style={td}>
