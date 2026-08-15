@@ -169,28 +169,35 @@ export default function Home() {
         <div style={{ color: textMuted, fontSize: 14 }}>›</div>
       </Link>
 
-      {/* Today's schedule */}
+      {/* Today's schedule — real per-employee data */}
       <div style={{ marginTop: 10, background: cardBg, border: cardBorder, borderRadius: 16, padding: '10px 12px', boxShadow: '0 4px 12px rgba(0,0,0,.15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontWeight: 800, fontSize: 13, color: textPrimary }}>Today's schedule</div>
-          <div style={{ fontSize: 10, color: textMuted, fontWeight: 600 }}>2 items</div>
+          <div style={{ fontSize: 10, color: textMuted, fontWeight: 600 }}>{new Date().toLocaleDateString('en-CA', { weekday: 'long' })}</div>
         </div>
         <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 6, height: 32, borderRadius: 99, background: '#22c55e' }} />
+            <div style={{ width: 6, height: 32, borderRadius: 99, background: scheduleIsActive ? '#22c55e' : '#94a3b8' }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: textPrimary }}>Shift · {site?.name || 'Main Office'}</div>
-              <div style={{ fontSize: 10, color: textMuted }}>{shiftInLabel} – {shiftOutLabel}</div>
+              <div style={{ fontSize: 10, color: textMuted }}>{shiftInLabel} – {shiftOutLabel} · {shiftHours.toFixed(1)}h</div>
             </div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', padding: '3px 8px', borderRadius: 999, boxShadow: '0 4px 12px rgba(0,0,0,.2)' }}>Active</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: scheduleIsActive ? '#22c55e' : textMuted, padding: '3px 8px', borderRadius: 999, boxShadow: '0 4px 12px rgba(0,0,0,.2)' }}>{scheduleIsActive ? 'Active' : 'Scheduled'}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 6, height: 32, borderRadius: 99, background: '#f59e0b' }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: textPrimary }}>Break window</div>
+              <div style={{ fontSize: 10, color: textMuted }}>1 unpaid hr · take between {shiftInLabel} and {shiftOutLabel}</div>
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 6, height: 32, borderRadius: 99, background: dark ? 'rgba(255,255,255,.08)' : '#e2e8f0' }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: textPrimary }}>Team Standup · Room B</div>
-              <div style={{ fontSize: 10, color: textMuted }}>02:00 PM · 30 min</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: textPrimary }}>End-of-day sign-out</div>
+              <div style={{ fontSize: 10, color: textMuted }}>Clock out at {shiftOutLabel} to close today's timesheet</div>
             </div>
-            <div style={{ fontSize: 9, fontWeight: 700, color: textMuted, background: dark ? 'rgba(255,255,255,.06)' : '#f1f5f9', padding: '3px 7px', borderRadius: 99 }}>2:00 PM</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: textMuted, background: dark ? 'rgba(255,255,255,.06)' : '#f1f5f9', padding: '3px 7px', borderRadius: 99 }}>{shiftOutLabel}</div>
           </div>
         </div>
       </div>

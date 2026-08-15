@@ -1,18 +1,15 @@
-import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
-import { supabase } from '../lib/supabase'
 import { initials } from '../lib/util'
 
+function fmtUSD(n) { return `$${(Number(n) || 0).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }
+
 export default function Profile() {
-  const { profile, session, signOut, refreshProfile } = useAuth()
-  const { theme, accent, setAccent, accents } = useTheme()
+  const { profile, signOut } = useAuth()
+  const { theme } = useTheme()
   const dark = theme === 'dark'
   const nav = useNavigate()
-  const fileRef = useRef(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploadErr, setUploadErr] = useState('')
 
   const bg = dark ? 'linear-gradient(180deg,#0d1528,#111827)' : 'linear-gradient(180deg,#f1f5f9,#ffffff)'
   const cardBg = dark ? 'linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.03))' : 'linear-gradient(145deg,#ffffff 0%,#f0f9ff 100%)'
@@ -25,87 +22,27 @@ export default function Profile() {
     nav('/login', { replace: true })
   }
 
-  const onPickFile = () => fileRef.current?.click()
-
-  const onFileChosen = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = '' // reset so choosing the same file again re-fires
-    if (!file || !session?.user?.id) return
-    if (!file.type.startsWith('image/')) { setUploadErr('Please choose an image file.'); return }
-    if (file.size > 4 * 1024 * 1024) { setUploadErr('Image must be under 4MB.'); return }
-
-    setUploading(true); setUploadErr('')
-    try {
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-      const path = `${session.user.id}/${Date.now()}.${ext}`
-      const up = await supabase.storage.from('avatars').upload(path, file, {
-        contentType: file.type, upsert: true,
-      })
-      if (up.error) throw up.error
-      const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
-      const publicUrl = pub.publicUrl
-      const upd = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', session.user.id)
-      if (upd.error) throw upd.error
-      await refreshProfile()
-    } catch (err) {
-      setUploadErr(err.message || 'Upload failed.')
-    }
-    setUploading(false)
-  }
-
   return (
     <div style={{ background: bg, minHeight: '100%', padding: '8px 20px 0', fontFamily: "'Inter',system-ui,sans-serif" }}>
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px 4px' }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: textPrimary }}>Profile</div>
       </div>
 
-      {/* Header card */}
+      {/* Header card — read-only, no image upload (admin-managed) */}
       <div style={{ borderRadius: 20, padding: 20, background: 'linear-gradient(135deg,#1e3a8a,#2563eb)', color: '#fff', textAlign: 'center', boxShadow: '0 8px 24px rgba(37,99,235,.25)' }}>
-        <button
-          onClick={onPickFile}
-          disabled={uploading}
-          title="Change profile picture"
-          style={{
-            display: 'inline-block', position: 'relative',
-            background: 'none', border: 'none', padding: 0, cursor: uploading ? 'wait' : 'pointer',
-          }}
-        >
-          <div style={{
-            width: 78, height: 78, borderRadius: '50%',
-            background: 'linear-gradient(135deg,#60a5fa,#0ea5e9)',
-            color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 900, fontSize: 26, margin: '0 auto',
-            boxShadow: '0 6px 18px rgba(0,0,0,.3)',
-            border: '3px solid rgba(255,255,255,.2)',
-            overflow: 'hidden',
-          }}>
-            {profile?.avatar_url
-              ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : initials(profile?.full_name || 'JR')}
-          </div>
-          {/* Camera badge overlay */}
-          <div style={{
-            position: 'absolute', bottom: -4, right: -4,
-            width: 26, height: 26, borderRadius: '50%',
-            background: '#fff', color: '#2563eb',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 6px rgba(0,0,0,.25)',
-            border: '2px solid #1e3a8a',
-          }}>
-            {uploading ? (
-              <span style={{ fontSize: 12, fontWeight: 800 }}>⋯</span>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
-              </svg>
-            )}
-          </div>
-        </button>
-        <input ref={fileRef} type="file" accept="image/*" onChange={onFileChosen} style={{ display: 'none' }} />
+        <div style={{
+          width: 78, height: 78, borderRadius: '50%',
+          background: 'linear-gradient(135deg,#60a5fa,#0ea5e9)',
+          color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontWeight: 900, fontSize: 26, margin: '0 auto',
+          boxShadow: '0 6px 18px rgba(0,0,0,.3)',
+          border: '3px solid rgba(255,255,255,.2)',
+        }}>
+          {initials(profile?.full_name || 'EM')}
+        </div>
 
         <div style={{ fontSize: 18, fontWeight: 800, marginTop: 10 }}>{profile?.full_name || 'Employee'}</div>
         <div style={{ fontSize: 11, opacity: .8, marginTop: 2 }}>{profile?.position || 'Employee'} · #{profile?.employee_code || 'EMP-000'}</div>
-        {uploadErr && <div style={{ marginTop: 8, fontSize: 11, color: '#fca5a5', background: 'rgba(239,68,68,.15)', padding: '6px 10px', borderRadius: 8, display: 'inline-block' }}>{uploadErr}</div>}
       </div>
 
       {/* Stat row */}
@@ -115,30 +52,23 @@ export default function Profile() {
         <StatTile bg={cardBg} border={cardBorder} label="OT hours" value="36" color="#a16207" textPrimary={textPrimary} textMuted={textMuted} />
       </div>
 
-      {/* Accent picker (5 colors) */}
+      {/* Compensation card — read-only, admin-configured */}
       <div style={{ marginTop: 14, padding: 14, borderRadius: 14, background: cardBg, border: cardBorder }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>Accent color</div>
-            <div style={{ fontSize: 10, color: textMuted, marginTop: 1 }}>Choose your app accent</div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          {accents.map((a) => (
-            <button
-              key={a.key}
-              onClick={() => setAccent(a.key)}
-              title={a.label}
-              style={{
-                width: 34, height: 34, borderRadius: '50%',
-                background: a.color,
-                border: accent === a.key ? '3px solid #fff' : '2px solid rgba(0,0,0,.08)',
-                boxShadow: accent === a.key ? `0 0 0 2px ${a.color}` : 'none',
-                cursor: 'pointer',
-              }}
-            />
-          ))}
-        </div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary, marginBottom: 8 }}>Compensation</div>
+        <PayRow label="Hourly rate" value={Number(profile?.daily_rate) > 0 ? `${fmtUSD(profile?.daily_rate)}/hr` : 'Not set'} textPrimary={textPrimary} textMuted={textMuted} />
+        <PayRow label="CPP deduction" value={fmtUSD(profile?.cpp_amount)} textPrimary={textPrimary} textMuted={textMuted} />
+        <PayRow label="EI deduction" value={fmtUSD(profile?.ei_amount)} textPrimary={textPrimary} textMuted={textMuted} />
+        <PayRow label="Federal tax" value={fmtUSD(profile?.federal_tax_amount)} textPrimary={textPrimary} textMuted={textMuted} />
+        <PayRow label="Provincial tax" value={fmtUSD(profile?.provincial_tax_amount)} textPrimary={textPrimary} textMuted={textMuted} last />
+        <div style={{ marginTop: 8, fontSize: 10, color: textMuted, fontStyle: 'italic' }}>Set by your admin. Contact them if anything looks wrong.</div>
+      </div>
+
+      {/* Schedule card — days worked + days off */}
+      <div style={{ marginTop: 12, padding: 14, borderRadius: 14, background: cardBg, border: cardBorder }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary, marginBottom: 8 }}>Weekly schedule</div>
+        <DayGrid label="Work days" days={profile?.schedule_days || '1,2,3,4,5'} on="#22c55e" textPrimary={textPrimary} textMuted={textMuted} />
+        <div style={{ height: 8 }} />
+        <DayGrid label="Days off" days={profile?.day_off || '0,6'} on="#f59e0b" textPrimary={textPrimary} textMuted={textMuted} />
       </div>
 
       {/* Menu */}
@@ -165,6 +95,36 @@ export default function Profile() {
       </div>
 
       <div style={{ height: 30 }} />
+    </div>
+  )
+}
+
+function PayRow({ label, value, textPrimary, textMuted, last }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: last ? 'none' : '1px dashed rgba(148,163,184,.2)' }}>
+      <span style={{ fontSize: 11, color: textMuted, fontWeight: 600 }}>{label}</span>
+      <span style={{ fontSize: 12, color: textPrimary, fontWeight: 800, fontFamily: 'monospace' }}>{value}</span>
+    </div>
+  )
+}
+
+const DAY_ABBR = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+function DayGrid({ label, days, on, textPrimary, textMuted }) {
+  const set = new Set(String(days || '').split(',').map(Number).filter((n) => !isNaN(n)))
+  return (
+    <div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: textMuted, letterSpacing: .4, marginBottom: 4 }}>{label.toUpperCase()}</div>
+      <div style={{ display: 'flex', gap: 4 }}>
+        {DAY_ABBR.map((abbr, i) => (
+          <div key={i} style={{
+            width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: set.has(i) ? on : 'transparent',
+            color: set.has(i) ? '#fff' : textMuted,
+            border: set.has(i) ? 'none' : '1px solid rgba(148,163,184,.3)',
+            fontSize: 11, fontWeight: 800,
+          }}>{abbr}</div>
+        ))}
+      </div>
     </div>
   )
 }

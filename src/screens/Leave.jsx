@@ -49,7 +49,7 @@ export default function Leave() {
       const days = Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1
       const { error } = await supabase.from('leave_requests').insert({
         profile_id: profile.id, org_id: profile.org_id, leave_type_id: typeId,
-        start_date: start, end_date: end, days, reason, status: 'pending',
+        date_from: start, date_to: end, days, reason, status: 'pending',
       })
       if (error) throw error
       setMsg('Request submitted.')
@@ -89,7 +89,7 @@ export default function Leave() {
         {balances.slice(0, 3).map((b, i) => (
           <div key={i} style={{ padding: 10, borderRadius: 12, background: cardBg, border: cardBorder, textAlign: 'center' }}>
             <div style={{ fontSize: 16, fontWeight: 800, color: ['#16a34a', '#2563eb', '#a16207'][i] }}>{Number(b.total || 0) - Number(b.used || 0)}</div>
-            <div style={{ fontSize: 9, color: textMuted, fontWeight: 600 }}>{b.leave_type?.label || 'Leave'}</div>
+            <div style={{ fontSize: 9, color: textMuted, fontWeight: 600 }}>{b.leave_type?.name || 'Leave'}</div>
           </div>
         ))}
         {balances.length === 0 && (
@@ -115,7 +115,7 @@ export default function Leave() {
           <label style={{ display: 'grid', gap: 4 }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: textMuted }}>LEAVE TYPE</span>
             <select value={typeId} onChange={(e) => setTypeId(e.target.value)} required style={{ padding: '10px 12px', border: cardBorder, borderRadius: 10, background: inputBg, color: textPrimary, fontSize: 13 }}>
-              {types.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+              {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -151,10 +151,10 @@ export default function Leave() {
         {requests.map((r) => (
           <div key={r.id} style={{ padding: 12, borderRadius: 14, background: cardBg, border: cardBorder, boxShadow: '0 2px 6px rgba(15,23,42,.05)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>{r.leave_type?.label || 'Leave'}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>{r.leave_type?.name || 'Leave'}</div>
               {statusChip(r.status)}
             </div>
-            <div style={{ fontSize: 11, color: textMuted, marginTop: 4 }}>{fmtDate(r.start_date)} – {fmtDate(r.end_date)} · {r.days} day{r.days > 1 ? 's' : ''}</div>
+            <div style={{ fontSize: 11, color: textMuted, marginTop: 4 }}>{fmtDate(r.date_from)} – {fmtDate(r.date_to)} · {r.days} day{r.days > 1 ? 's' : ''}</div>
             {r.reason && <div style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>{r.reason}</div>}
           </div>
         ))}

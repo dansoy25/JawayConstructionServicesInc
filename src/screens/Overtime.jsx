@@ -10,6 +10,7 @@ export default function Overtime() {
   const { theme } = useTheme()
   const dark = theme === 'dark'
   const [rows, setRows] = useState([])
+  const [autoOt, setAutoOt] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [hours, setHours] = useState('2')
@@ -26,11 +27,25 @@ export default function Overtime() {
   const load = async () => {
     if (!profile?.id) return
     const { data: ot } = await supabase.from('leave_types').select('id, code').ilike('code', 'ot').maybeSingle()
-    if (!ot) return setRows([])
-    const { data } = await supabase.from('leave_requests').select('*').eq('profile_id', profile.id).eq('leave_type_id', ot.id).order('created_at', { ascending: false }).limit(20)
-    setRows(data || [])
+    if (ot) {
+      const { data } = await supabase.from('leave_requests').select('*').eq('profile_id', profile.id).eq('leave_type_id', ot.id).order('created_at', { ascending: false }).limit(20)
+      setRows(data || [])
+    } else {
+      setRows([])
+    }
+    // Auto-detected OT from attendance rows (>8h shift). Show admin approval status.
+    const { data: att } = await supabase.from('attendance')
+      .select('id, work_date, ot_hours, ot_approved, ot_approved_at')
+      .eq('profile_id', profile.id)
+      .gt('ot_hours', 0)
+      .order('work_date', { ascending: false })
+      .limit(20)
+    setAutoOt(att || [])
   }
   useEffect(() => { load() }, [profile?.id])
+
+  const approvedAutoHours = autoOt.filter((r) => r.ot_approved).reduce((s, r) => s + Number(r.ot_hours || 0), 0)
+  const pendingAutoHours = autoOt.filter((r) => !r.ot_approved).reduce((s, r) => s + Number(r.ot_hours || 0), 0)
 
   const totalReq = rows.reduce((s, r) => s + (Number(r.days) || 0), 0)
   const totalApproved = rows.filter((r) => r.status === 'approved').reduce((s, r) => s + Number(r.days || 0), 0)
@@ -42,12 +57,12 @@ export default function Overtime() {
     try {
       let { data: ot } = await supabase.from('leave_types').select('id').ilike('code', 'ot').maybeSingle()
       if (!ot) {
-        const { data: created } = await supabase.from('leave_types').insert({ code: 'OT', label: 'Overtime', org_id: profile.org_id, paid: true }).select().single()
+        const { data: created } = await supabase.from('leave_types').insert({ code: 'OT', name: 'Overtime', org_id: profile.org_id }).select().single()
         ot = created
       }
       const { error } = await supabase.from('leave_requests').insert({
         profile_id: profile.id, org_id: profile.org_id, leave_type_id: ot.id,
-        start_date: date, end_date: date, days: Number(hours) / 8, reason, status: 'pending',
+        date_from: date, date_to: date, days: Number(hours) / 8, reason, status: 'pending',
       })
       if (error) throw error
       setMsg('Request submitted.')
@@ -80,8 +95,33 @@ export default function Overtime() {
         </div>
       </div>
 
-      {/* Recent overtime */}
-      <div style={{ marginTop: 18, fontWeight: 800, fontSize: 14, color: textPrimary }}>Recent overtime</div>
+      {/* Auto-detected OT from clock in/out — admin approves/revokes */}
+      {autoOt.length > 0 && (
+        <>
+          <div style={{ marginTop: 18, fontWeight: 800, fontSize: 14, color: textPrimary }}>
+            OT from clock-outs
+            <span style={{ marginLeft: 8, fontSize: 10, color: textMuted, fontWeight: 600 }}>
+              {approvedAutoHours.toFixed(1)}h approved · {pendingAutoHours.toFixed(1)}h pending
+            </span>
+          </div>
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {autoOt.slice(0, 5).map((r) => (
+              <div key={r.id} style={{ padding: 12, borderRadius: 14, background: cardBg, border: cardBorder, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>{fmtDate(r.work_date)}</div>
+                  <div style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>{Number(r.ot_hours).toFixed(1)}h over standard shift</div>
+                </div>
+                {r.ot_approved
+                  ? <span style={{ fontSize: 10, fontWeight: 800, color: '#15803d', background: '#DCFCE7', padding: '4px 10px', borderRadius: 999 }}>✓ Approved by admin</span>
+                  : <span style={{ fontSize: 10, fontWeight: 800, color: '#a16207', background: '#FEF3C7', padding: '4px 10px', borderRadius: 999 }}>⏱ Awaiting admin</span>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Recent overtime requests */}
+      <div style={{ marginTop: 18, fontWeight: 800, fontSize: 14, color: textPrimary }}>Recent overtime requests</div>
       <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {rows.length === 0 && (
           <div style={{ padding: 14, borderRadius: 14, background: cardBg, border: cardBorder, textAlign: 'center', fontSize: 12, color: textMuted }}>No overtime requests yet.</div>
@@ -89,7 +129,7 @@ export default function Overtime() {
         {rows.slice(0, 5).map((r) => (
           <div key={r.id} style={{ padding: 12, borderRadius: 14, background: cardBg, border: cardBorder, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 6px rgba(15,23,42,.05)' }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>{fmtDate(r.start_date)}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>{fmtDate(r.date_from)}</div>
               <div style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>{Math.round((r.days || 0) * 8 * 60)} min · {r.reason || 'No reason'}</div>
             </div>
             <StatusPill status={r.status} />

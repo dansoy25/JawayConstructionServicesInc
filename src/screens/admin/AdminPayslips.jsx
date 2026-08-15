@@ -13,11 +13,12 @@ export default function AdminPayslips() {
   const { profile } = useAuth()
   const [employees, setEmployees] = useState([])
   const [payslips, setPayslips] = useState([])
+  const [requests, setRequests] = useState([])
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [ytdOpen, setYtdOpen] = useState(false)
 
-  useEffect(() => {
+  const load = () => {
     if (!profile?.org_id) return
     supabase.from('profiles')
       .select('id, full_name, employee_code, position, daily_rate, avatar_url')
@@ -26,11 +27,36 @@ export default function AdminPayslips() {
       .order('full_name')
       .then(({ data }) => setEmployees(data || []))
     supabase.from('payslips')
-      .select('id, profile_id, period_start, period_end, gross, net, status, created_at')
+      .select('id, profile_id, period_start, period_end, gross, net, status, sent_at, created_at')
       .eq('org_id', profile.org_id)
       .order('period_end', { ascending: false })
       .then(({ data }) => setPayslips(data || []))
-  }, [profile?.org_id])
+    supabase.from('payslip_requests')
+      .select('*, profile:profiles(full_name, employee_code)')
+      .eq('org_id', profile.org_id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setRequests(data || []))
+  }
+  useEffect(load, [profile?.org_id])
+
+  // Send latest un-sent payslip to an employee (marks it sent + fulfils any pending request).
+  const sendPayslip = async (empId) => {
+    const target = payslips.find((p) => p.profile_id === empId && !p.sent_at)
+    if (!target) { alert('This employee has no un-sent payslip. Run a payroll first.'); return }
+    await supabase.from('payslips').update({ sent_at: new Date().toISOString(), sent_by: profile?.id }).eq('id', target.id)
+    // Auto-fulfil any pending request for this employee.
+    await supabase.from('payslip_requests')
+      .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString(), fulfilled_by: profile?.id })
+      .eq('org_id', profile.org_id).eq('profile_id', empId).eq('status', 'pending')
+    load()
+  }
+  const denyRequest = async (id) => {
+    await supabase.from('payslip_requests')
+      .update({ status: 'denied', fulfilled_at: new Date().toISOString(), fulfilled_by: profile?.id })
+      .eq('id', id)
+    load()
+  }
 
   const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10)
 
@@ -87,12 +113,39 @@ export default function AdminPayslips() {
     <div style={{ padding: 32 }}>
       <PageHeader
         title="Payslips"
-        sub={`${employees.length} employees · ${payslips.length} payslips generated · ${totalPending} pending requests`}
+        sub={`${employees.length} employees · ${payslips.length} generated · ${payslips.filter((p) => p.sent_at).length} sent · ${requests.length} pending requests`}
         actions={<>
+          <button onClick={load} style={btnGhost}>↻ Refresh</button>
           <button onClick={doExportCsv} style={btnGhost}>⬇ CSV</button>
           <button onClick={() => setYtdOpen(true)} style={btnPrimary}>📊 View YTD</button>
         </>}
       />
+
+      {requests.length > 0 && (
+        <div style={{ background: '#fff', border: '1px solid #f59e0b', borderRadius: 14, padding: 16, marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>📨 Payslip requests from employees</div>
+              <div style={{ fontSize: 11, color: '#64748b' }}>Each request is waiting for you to send that employee their latest payslip.</div>
+            </div>
+            <span style={{ background: '#FEF3C7', color: '#a16207', padding: '2px 10px', borderRadius: 999, fontSize: 11, fontWeight: 800 }}>{requests.length} pending</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {requests.map((r) => (
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: '#FEF3C7', borderRadius: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>
+                    {r.profile?.full_name || 'Employee'} <span style={{ color: '#94a3b8', fontFamily: 'monospace', marginLeft: 6 }}>{r.profile?.employee_code}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Requested {new Date(r.created_at).toLocaleDateString('en-CA')} · Period {r.period_start} → {r.period_end}</div>
+                </div>
+                <button onClick={() => sendPayslip(r.profile_id)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#22c55e', color: '#fff', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>📨 Send latest</button>
+                <button onClick={() => denyRequest(r.id)} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #FCA5A5', background: '#fff', color: '#b91c1c', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>✗ Deny</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 20 }}>
         <StatTile icon="📥" label="PENDING REQUESTS" value={totalPending} sub="awaiting release" accent="#f59e0b" />
@@ -136,9 +189,20 @@ export default function AdminPayslips() {
                 <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>{fmtUSD(r.ytdNet)}</td>
                 <td style={{ ...td, fontFamily: 'monospace' }}>{r.count}</td>
                 <td style={td}>
-                  {r.pending
-                    ? <span style={{ background: '#FEF3C7', color: '#a16207', padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 800 }}>● {r.pending} pending</span>
-                    : <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span>}
+                  {(() => {
+                    const unsent = payslips.find((p) => p.profile_id === r.id && !p.sent_at)
+                    if (r.pending) {
+                      return <button onClick={() => sendPayslip(r.id)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: '#f59e0b', color: '#fff', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}>📨 Send ({r.pending} req)</button>
+                    }
+                    if (unsent) {
+                      return <button onClick={() => sendPayslip(r.id)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #22c55e', background: '#fff', color: '#15803d', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}>📨 Send latest</button>
+                    }
+                    if (r.count > 0) {
+                      const lastSent = payslips.find((p) => p.profile_id === r.id && p.sent_at)
+                      return <span style={{ color: '#15803d', fontSize: 10, fontWeight: 700 }}>{lastSent ? `✓ Sent ${new Date(lastSent.sent_at).toLocaleDateString('en-CA')}` : '—'}</span>
+                    }
+                    return <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span>
+                  })()}
                 </td>
               </tr>
             ))}

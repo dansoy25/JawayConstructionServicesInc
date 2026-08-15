@@ -212,7 +212,7 @@ function SiteEditorModal({ site, orgId, onClose, onSaved }) {
         </div>
 
         <form onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', zIndex: 2000 }}>
             <div style={{ display: 'flex', gap: 8 }}>
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -233,7 +233,7 @@ function SiteEditorModal({ site, orgId, onClose, onSaved }) {
               </button>
             </div>
             {searchResults.length > 0 && (
-              <div style={{ position: 'absolute', top: 46, left: 0, right: 0, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 10, maxHeight: 220, overflowY: 'auto' }}>
+              <div style={{ position: 'absolute', top: 46, left: 0, right: 0, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 2100, maxHeight: 260, overflowY: 'auto' }}>
                 {searchResults.map((r) => (
                   <button key={`${r.place_id}`} type="button" onClick={() => pickResult(r)}
                     style={{ width: '100%', textAlign: 'left', padding: '10px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: 12, color: '#0f172a' }}>

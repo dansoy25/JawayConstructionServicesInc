@@ -38,6 +38,9 @@ export default function Payslip() {
   const [slips, setSlips] = useState([])
   const [selected, setSelected] = useState(null)
   const [loadErr, setLoadErr] = useState('')
+  const [pendingReq, setPendingReq] = useState(null)
+  const [requesting, setRequesting] = useState(false)
+  const [reqMsg, setReqMsg] = useState('')
 
   const bg = dark ? 'linear-gradient(180deg,#0d1528,#111827)' : 'linear-gradient(180deg,#f1f5f9,#ffffff)'
   const cardBg = dark ? 'linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.03))' : 'linear-gradient(145deg,#ffffff 0%,#f0f9ff 100%)'
@@ -45,12 +48,14 @@ export default function Payslip() {
   const textPrimary = dark ? '#e2e8f0' : '#334155'
   const textMuted = dark ? '#94a3b8' : '#64748b'
 
-  useEffect(() => {
+  const load = () => {
     if (!profile?.id) return
     setLoadErr('')
+    // Only show slips the admin has explicitly sent to the employee.
     supabase.from('payslips')
       .select('*')
       .eq('profile_id', profile.id)
+      .not('sent_at', 'is', null)
       .order('period_end', { ascending: false })
       .limit(24)
       .then(({ data, error }) => {
@@ -58,8 +63,31 @@ export default function Payslip() {
         setSlips(data || [])
         if ((data || []).length > 0 && !selected) setSelected(data[0])
       })
-    // eslint-disable-next-line
-  }, [profile?.id])
+    supabase.from('payslip_requests')
+      .select('*')
+      .eq('profile_id', profile.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data }) => setPendingReq(data?.[0] || null))
+  }
+  // eslint-disable-next-line
+  useEffect(load, [profile?.id])
+
+  const requestPayslip = async () => {
+    if (!profile?.id || !profile?.org_id) return
+    setRequesting(true); setReqMsg('')
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
+    const { error } = await supabase.from('payslip_requests').insert({
+      org_id: profile.org_id, profile_id: profile.id,
+      period_start: monthStart, period_end: monthEnd,
+    })
+    if (error) setReqMsg(error.message)
+    else { setReqMsg('Request sent to admin.'); load() }
+    setRequesting(false)
+  }
 
   const details = useMemo(() => {
     if (!selected) return null
@@ -135,9 +163,25 @@ export default function Payslip() {
         </div>
       )}
 
+      {pendingReq && (
+        <div className="no-print" style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(245,158,11,.15)', border: '1px solid rgba(245,158,11,.4)', color: '#f59e0b', fontSize: 12, fontWeight: 700, marginBottom: 12 }}>
+          ⏱ Payslip request pending — admin will send it shortly.
+        </div>
+      )}
+
       {slips.length === 0 ? (
         <div style={{ padding: 30, textAlign: 'center', color: textMuted, fontSize: 12, background: cardBg, borderRadius: 14, border: cardBorder }}>
-          No payslips yet. Your admin will generate one after each payroll cycle.
+          <div style={{ fontSize: 30, marginBottom: 10 }}>📄</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: textPrimary, marginBottom: 4 }}>No payslips sent yet</div>
+          <div style={{ marginBottom: 14 }}>Request a payslip and your admin will send the latest one back to you here.</div>
+          {!pendingReq && (
+            <button
+              onClick={requestPayslip}
+              disabled={requesting}
+              style={{ padding: '10px 18px', borderRadius: 999, border: 'none', background: 'linear-gradient(135deg,#dc2626,#0f172a)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: requesting ? 'wait' : 'pointer', opacity: requesting ? .7 : 1 }}
+            >{requesting ? 'Sending…' : '📨 Request payslip'}</button>
+          )}
+          {reqMsg && <div style={{ marginTop: 10, fontSize: 11 }}>{reqMsg}</div>}
         </div>
       ) : (
         <>
@@ -228,10 +272,22 @@ export default function Payslip() {
 
           {/* Actions */}
           {details && (
-            <div className="no-print" style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <button onClick={downloadPDF} style={btnFilled}>⬇ Download PDF</button>
-              <button onClick={downloadCSV} style={btnOutline}>📊 Export CSV</button>
-            </div>
+            <>
+              <div className="no-print" style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button onClick={downloadPDF} style={btnFilled}>⬇ Download PDF</button>
+                <button onClick={downloadCSV} style={btnOutline}>📊 Export CSV</button>
+              </div>
+              {!pendingReq && (
+                <div className="no-print" style={{ marginTop: 10, textAlign: 'center' }}>
+                  <button
+                    onClick={requestPayslip}
+                    disabled={requesting}
+                    style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid rgba(220,38,38,.4)', background: 'transparent', color: '#dc2626', fontSize: 11, fontWeight: 700, cursor: requesting ? 'wait' : 'pointer' }}
+                  >{requesting ? 'Sending…' : '📨 Request another payslip'}</button>
+                  {reqMsg && <div style={{ marginTop: 6, fontSize: 10, color: textMuted }}>{reqMsg}</div>}
+                </div>
+              )}
+            </>
           )}
         </>
       )}
