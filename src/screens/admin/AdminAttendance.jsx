@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { fmtTime, initials } from '../../lib/util'
 import { table, th, td, btnGhost, chip, StatTile, PageHeader } from './adminShared'
+import { exportCsv, printPage, todayStamp } from '../../lib/exports'
+import MapView from '../../components/MapView'
 
 export default function AdminAttendance() {
   const { profile } = useAuth()
@@ -11,6 +13,11 @@ export default function AdminAttendance() {
   const [loadErr, setLoadErr] = useState('')
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)
+  const [view, setView] = useState('table')          // table | map
+  const [statusFilter, setStatusFilter] = useState('all')      // all | present | late | absent | complete
+  const [deptFilter, setDeptFilter] = useState('all')          // all | <position>
+  const [search, setSearch] = useState('')
+  const [sites, setSites] = useState([])
 
   const load = async () => {
     if (!profile?.org_id) return
@@ -22,7 +29,7 @@ export default function AdminAttendance() {
         .eq('org_id', profile.org_id)
         .eq('is_admin', false),
       supabase.from('attendance')
-        .select('*, profile:profiles(full_name, avatar_url, position, employee_code, schedule), site:sites(name)')
+        .select('*, profile:profiles(full_name, avatar_url, position, employee_code, schedule), site:sites(name, lat, lng)')
         .eq('org_id', profile.org_id)
         .gte('work_date', addDays(today, -14))
         .order('work_date', { ascending: false })
@@ -33,8 +40,53 @@ export default function AdminAttendance() {
     if (att.error) setLoadErr(att.error.message)
     setEmployees(emp.data || [])
     setRows(att.data || [])
+
+    // Load sites once for the map view
+    const { data: siteRows } = await supabase.from('sites')
+      .select('id, name, lat, lng, radius_m').eq('org_id', profile.org_id)
+    setSites(siteRows || [])
   }
   useEffect(() => { load() }, [profile?.org_id])
+
+  // Filter helpers
+  const rowStatus = (r) => {
+    if (!r.clock_in) return 'absent'
+    if (r.clock_out) return 'complete'
+    const emp = employees.find((e) => e.id === r.profile_id)
+    const s = parseScheduleStart(emp?.schedule) || { h: 8, m: 0 }
+    const t = new Date(r.clock_in)
+    return (t.getHours() * 60 + t.getMinutes()) > (s.h * 60 + s.m) ? 'late' : 'present'
+  }
+
+  const departments = useMemo(() => {
+    const set = new Set()
+    for (const e of employees) if (e.position) set.add(e.position)
+    return [...set].sort()
+  }, [employees])
+
+  const visibleRows = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return rows.filter((r) => {
+      if (statusFilter !== 'all' && rowStatus(r) !== statusFilter) return false
+      if (deptFilter !== 'all' && r.profile?.position !== deptFilter) return false
+      if (q && !(
+        (r.profile?.full_name || '').toLowerCase().includes(q) ||
+        (r.profile?.employee_code || '').toLowerCase().includes(q)
+      )) return false
+      return true
+    })
+  }, [rows, statusFilter, deptFilter, search, employees])
+
+  const doExportCsv = () => {
+    const headers = ['Employee', 'Employee ID', 'Position', 'Site', 'Date', 'Time In', 'Time Out', 'Hours', 'Status']
+    const rows = visibleRows.map((r) => [
+      r.profile?.full_name || '', r.profile?.employee_code || '',
+      r.profile?.position || '', r.site?.name || '',
+      r.work_date, r.clock_in || '', r.clock_out || '',
+      r.hours || '', rowStatus(r),
+    ])
+    exportCsv(`attendance-${todayStamp()}.csv`, headers, rows)
+  }
 
   // Today-only stats: who has actually clocked in today, and who is still absent
   const stats = useMemo(() => {
@@ -76,12 +128,17 @@ export default function AdminAttendance() {
         sub={`${stats.total} employees · ${stats.present} clocked in today`}
         actions={<>
           <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 10, padding: 2 }}>
-            <button style={{ padding: '6px 14px', border: 'none', background: '#2563eb', color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>⊞ Table</button>
-            <button style={{ padding: '6px 14px', border: 'none', background: 'transparent', color: '#64748b', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>▦ Map</button>
+            {['table', 'map'].map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                style={{ padding: '6px 14px', border: 'none', background: view === v ? '#2563eb' : 'transparent', color: view === v ? '#fff' : '#64748b', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              >{v === 'table' ? '⊞ Table' : '▦ Map'}</button>
+            ))}
           </div>
           <button onClick={load} style={btnGhost}>↻ Refresh</button>
-          <button style={btnGhost}>⬇ CSV</button>
-          <button style={btnGhost}>📄 PDF</button>
+          <button onClick={doExportCsv} style={btnGhost}>⬇ CSV</button>
+          <button onClick={printPage} style={btnGhost}>📄 PDF</button>
         </>}
       />
 
@@ -102,12 +159,29 @@ export default function AdminAttendance() {
         <div style={{ padding: 16, display: 'flex', gap: 12, alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 12px' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input placeholder="Search employees…" style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 12 }} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search employees…"
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 12 }}
+            />
           </div>
-          <button style={btnGhost}>All status</button>
-          <button style={btnGhost}>All departments</button>
-          <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{rows.length} records</span>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
+            <option value="all">All status</option>
+            <option value="present">Present</option>
+            <option value="late">Late</option>
+            <option value="absent">Absent</option>
+            <option value="complete">Complete</option>
+          </select>
+          <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} style={selectStyle}>
+            <option value="all">All departments</option>
+            {departments.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+          <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{visibleRows.length} of {rows.length}</span>
         </div>
+        {view === 'map' ? (
+          <SiteMapView sites={sites} rows={visibleRows} />
+        ) : (
         <table style={table}>
           <thead>
             <tr>
@@ -115,8 +189,8 @@ export default function AdminAttendance() {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan="7" style={{ ...td, textAlign: 'center', padding: 30, color: '#94a3b8' }}>No clock-in records yet. Employees will appear here once they clock in.</td></tr>}
-            {rows.map((r) => {
+            {visibleRows.length === 0 && <tr><td colSpan="8" style={{ ...td, textAlign: 'center', padding: 30, color: '#94a3b8' }}>No records match the current filters.</td></tr>}
+            {visibleRows.map((r) => {
               const schedStart = parseScheduleStart(r.profile?.schedule) || { h: 8, m: 0 }
               const isLate = r.clock_in && (() => {
                 const t = new Date(r.clock_in)
@@ -165,6 +239,7 @@ export default function AdminAttendance() {
             })}
           </tbody>
         </table>
+        )}
       </div>
 
       {editing && <EditAttendanceModal row={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} />}
@@ -286,6 +361,7 @@ function DeleteAttendanceDialog({ row, onClose, onDeleted }) {
 }
 
 const inputStyle = { padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none', color: '#0f172a', background: '#fff', fontWeight: 600 }
+const selectStyle = { padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, background: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer', outline: 'none' }
 const ghostBtn = { padding: '10px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', color: '#334155', fontSize: 12, fontWeight: 700, cursor: 'pointer' }
 const primaryBtn = { padding: '10px 16px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }
 
@@ -295,6 +371,72 @@ function parseScheduleStart(s) {
   const m = s.match(/^(\d{1,2}):(\d{2})/)
   if (!m) return null
   return { h: parseInt(m[1], 10), m: parseInt(m[2], 10) }
+}
+
+// Map view: grid of site cards with clock-in counts + optional Leaflet
+function SiteMapView({ sites, rows }) {
+  const [focus, setFocus] = useState(null)
+  const today = new Date().toISOString().slice(0, 10)
+  const counts = new Map()
+  for (const r of rows) {
+    if (r.work_date !== today || !r.clock_in) continue
+    const sid = r.site_id || r.site?.name
+    if (!sid) continue
+    counts.set(sid, (counts.get(sid) || 0) + 1)
+  }
+  const focusSite = focus || sites.find((s) => s.lat && s.lng) || null
+
+  if (sites.length === 0) {
+    return (
+      <div style={{ padding: 30, textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>
+        No sites configured yet. Add sites in <b>GPS</b> to see them on the map.
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ padding: 16, display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 520, overflowY: 'auto' }}>
+        {sites.map((s) => {
+          const active = focusSite && focusSite.id === s.id
+          const n = counts.get(s.id) || 0
+          return (
+            <button
+              key={s.id}
+              onClick={() => setFocus(s)}
+              style={{
+                textAlign: 'left', padding: 12, borderRadius: 12,
+                border: active ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                background: active ? '#eff6ff' : '#fff', cursor: 'pointer',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 13 }}>{s.name}</div>
+                <span style={{ background: n ? '#DCFCE7' : '#f1f5f9', color: n ? '#15803d' : '#94a3b8', fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 999 }}>{n} in</span>
+              </div>
+              <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>
+                {s.lat && s.lng ? `${Number(s.lat).toFixed(4)}, ${Number(s.lng).toFixed(4)}` : 'No coordinates'}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+      <div>
+        {focusSite && focusSite.lat && focusSite.lng ? (
+          <MapView
+            center={{ lat: Number(focusSite.lat), lng: Number(focusSite.lng) }}
+            radiusM={focusSite.radius_m || 100}
+            siteName={focusSite.name}
+            height={520}
+          />
+        ) : (
+          <div style={{ height: 520, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', borderRadius: 16, color: '#94a3b8', fontSize: 12 }}>
+            Select a site with coordinates to preview it on the map.
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function addDays(iso, n) {
