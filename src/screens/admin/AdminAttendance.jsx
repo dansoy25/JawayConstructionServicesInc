@@ -9,6 +9,8 @@ export default function AdminAttendance() {
   const [employees, setEmployees] = useState([])
   const [rows, setRows] = useState([])
   const [loadErr, setLoadErr] = useState('')
+  const [editing, setEditing] = useState(null)
+  const [deleting, setDeleting] = useState(null)
 
   const load = async () => {
     if (!profile?.org_id) return
@@ -109,7 +111,7 @@ export default function AdminAttendance() {
         <table style={table}>
           <thead>
             <tr>
-              {['EMPLOYEE','DATE','TIME IN','TIME OUT','HOURS','STATUS','GPS'].map((h) => <th key={h} style={th}>{h}</th>)}
+              {['EMPLOYEE','DATE','TIME IN','TIME OUT','HOURS','STATUS','GPS',''].map((h, i) => <th key={i} style={th}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -146,15 +148,146 @@ export default function AdminAttendance() {
                   <td style={{ ...td, fontFamily: 'monospace' }}>{r.hours ? `${Number(r.hours).toFixed(1)}h` : '—'}</td>
                   <td style={td}><span style={chip(status.bg, status.color)}>● {status.label}</span></td>
                   <td style={td}><span style={{ color: '#2563eb', fontWeight: 600, fontSize: 11 }}>📍 {r.site?.name || 'Field'}</span></td>
+                  <td style={td}>
+                    <button
+                      title="Edit attendance"
+                      onClick={() => setEditing(r)}
+                      style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', marginRight: 6, fontSize: 15 }}
+                    >✎</button>
+                    <button
+                      title="Delete attendance"
+                      onClick={() => setDeleting(r)}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 15 }}
+                    >🗑</button>
+                  </td>
                 </tr>
               )
             })}
           </tbody>
         </table>
       </div>
+
+      {editing && <EditAttendanceModal row={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} />}
+      {deleting && <DeleteAttendanceDialog row={deleting} onClose={() => setDeleting(null)} onDeleted={() => { setDeleting(null); load() }} />}
     </div>
   )
 }
+
+// ─── Edit + Delete for a single attendance row ───────────────────────────
+
+function EditAttendanceModal({ row, onClose, onSaved }) {
+  const [workDate, setWorkDate] = useState(row.work_date || '')
+  const [clockIn, setClockIn] = useState(row.clock_in ? row.clock_in.slice(0, 16) : '')
+  const [clockOut, setClockOut] = useState(row.clock_out ? row.clock_out.slice(0, 16) : '')
+  const [notes, setNotes] = useState(row.notes || '')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setBusy(true); setErr('')
+    try {
+      const ci = clockIn ? new Date(clockIn).toISOString() : null
+      const co = clockOut ? new Date(clockOut).toISOString() : null
+      const hours = ci && co ? Math.max(0, (new Date(co) - new Date(ci)) / 3600000) : null
+      const { error } = await supabase.from('attendance').update({
+        work_date: workDate || null,
+        clock_in: ci,
+        clock_out: co,
+        hours: hours != null ? Number(hours.toFixed(2)) : null,
+        notes: notes || null,
+      }).eq('id', row.id)
+      if (error) throw error
+      onSaved()
+    } catch (e) { setErr(e.message || 'Update failed.') }
+    setBusy(false)
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20, backdropFilter: 'blur(4px)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: '#fff', borderRadius: 16, padding: 22, boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>Edit attendance</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 20 }}>✕</button>
+        </div>
+        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>
+          <b>{row.profile?.full_name || 'Employee'}</b> — {row.site?.name || 'Field'}
+        </div>
+
+        <form onSubmit={submit} style={{ display: 'grid', gap: 10 }}>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4 }}>WORK DATE</span>
+            <input type="date" value={workDate} onChange={(e) => setWorkDate(e.target.value)} required style={inputStyle} />
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <label style={{ display: 'grid', gap: 4 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4 }}>CLOCK IN</span>
+              <input type="datetime-local" value={clockIn} onChange={(e) => setClockIn(e.target.value)} style={inputStyle} />
+            </label>
+            <label style={{ display: 'grid', gap: 4 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4 }}>CLOCK OUT</span>
+              <input type="datetime-local" value={clockOut} onChange={(e) => setClockOut(e.target.value)} style={inputStyle} />
+            </label>
+          </div>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4 }}>ADMIN NOTES</span>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="e.g. Adjusted by admin after missed clock-out" style={{ ...inputStyle, resize: 'vertical' }} />
+          </label>
+
+          {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+            <button type="button" onClick={onClose} style={ghostBtn}>Cancel</button>
+            <button type="submit" disabled={busy} style={{ ...primaryBtn, opacity: busy ? .6 : 1 }}>{busy ? 'Saving…' : 'Save changes'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function DeleteAttendanceDialog({ row, onClose, onDeleted }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const submit = async () => {
+    setBusy(true); setErr('')
+    try {
+      const { error } = await supabase.from('attendance').delete().eq('id', row.id)
+      if (error) throw error
+      onDeleted()
+    } catch (e) { setErr(e.message || 'Delete failed.') }
+    setBusy(false)
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20, backdropFilter: 'blur(4px)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 400, background: '#fff', borderRadius: 16, padding: 22, boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#FEE2E2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>⚠</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>Delete attendance</div>
+        </div>
+        <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.5, marginBottom: 12 }}>
+          Remove <b>{row.profile?.full_name || 'this'}</b>'s attendance for <b>{new Date(row.work_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}</b>?
+          This is permanent and cannot be undone.
+        </div>
+        {err && <div style={{ marginBottom: 10, padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} style={ghostBtn}>Cancel</button>
+          <button
+            onClick={submit}
+            disabled={busy}
+            style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 800, cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? .6 : 1 }}
+          >{busy ? 'Deleting…' : 'Permanently delete'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const inputStyle = { padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none', color: '#0f172a', background: '#fff', fontWeight: 600 }
+const ghostBtn = { padding: '10px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', color: '#334155', fontSize: 12, fontWeight: 700, cursor: 'pointer' }
+const primaryBtn = { padding: '10px 16px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }
 
 // Parse "HH:MM-HH:MM" schedule string into a start time
 function parseScheduleStart(s) {

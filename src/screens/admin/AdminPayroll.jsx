@@ -4,21 +4,22 @@ import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/util'
 import { card, table, th, td, btnPrimary, btnGhost, chip, StatTile, PageHeader } from './adminShared'
 
-// US-based deduction rates. All zero for now — admin can adjust in Settings later.
-// Payroll is calculated but no deductions applied by default.
-const US_RATES = {
-  federal_income_tax: 0.00,   // Federal Income Tax withholding
-  state_income_tax:   0.00,   // State Income Tax withholding
-  social_security:    0.00,   // FICA — Social Security (6.2% normally)
-  medicare:           0.00,   // FICA — Medicare (1.45% normally)
+// Canadian deduction rates. Rates default to 0 so gross = net for testing;
+// admin can bump them in Settings once ready to actually withhold.
+const CA_RATES = {
+  cpp:            0.00,   // Canada Pension Plan (typically 5.95% up to YMPE)
+  ei:             0.00,   // Employment Insurance (typically 1.66%)
+  federal_tax:    0.00,   // Federal income tax withholding
+  provincial_tax: 0.00,   // Provincial income tax withholding
 }
+const US_RATES = CA_RATES // backwards-compat alias used elsewhere in the file
 
 function fmtUSD(n) {
   const v = Number(n) || 0
-  return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `$${v.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 function fmtDate(d) {
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(d).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 function today() {
   return new Date().toISOString().slice(0, 10)
@@ -68,7 +69,7 @@ export default function AdminPayroll() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 20 }}>
         <StatTile icon="💰" label="NET PAY YTD" value={fmtUSD(totalNet)} sub="paid this year" accent="#22c55e" />
         <StatTile icon="💵" label="GROSS PAY YTD" value={fmtUSD(totalGross)} sub="basic + OT + allow" accent="#2563eb" />
-        <StatTile icon="⊝" label="DEDUCTIONS YTD" value={fmtUSD(totalDeductions)} sub="Fed + State + FICA" accent="#ef4444" />
+        <StatTile icon="⊝" label="DEDUCTIONS YTD" value={fmtUSD(totalDeductions)} sub="CPP + EI + Federal + Provincial" accent="#ef4444" />
         <StatTile icon="👥" label="EMPLOYEES" value={empCount || '—'} sub="on last payroll" accent="#a855f7" />
       </div>
 
@@ -102,12 +103,12 @@ export default function AdminPayroll() {
       {/* Statutory config summary */}
       <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div style={card}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginBottom: 12 }}>Statutory rates (US)</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginBottom: 12 }}>Statutory rates (CA)</div>
           {[
-            { label: 'Federal Income Tax', v: US_RATES.federal_income_tax },
-            { label: 'State Income Tax', v: US_RATES.state_income_tax },
-            { label: 'Social Security (FICA)', v: US_RATES.social_security },
-            { label: 'Medicare (FICA)', v: US_RATES.medicare },
+            { label: 'CPP (Canada Pension Plan)', v: CA_RATES.cpp },
+            { label: 'EI (Employment Insurance)', v: CA_RATES.ei },
+            { label: 'Federal Tax', v: CA_RATES.federal_tax },
+            { label: 'Provincial Tax', v: CA_RATES.provincial_tax },
           ].map((r) => (
             <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
               <span style={{ color: '#334155' }}>{r.label}</span>
@@ -181,21 +182,21 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone }) {
       const basic = rate * regularHours
       const ot = rate * 1.5 * otHours
       const gross = basic + ot
-      const fed = gross * US_RATES.federal_income_tax
-      const state = gross * US_RATES.state_income_tax
-      const ss = gross * US_RATES.social_security
-      const med = gross * US_RATES.medicare
-      const deductions = fed + state + ss + med
+      const cpp = gross * CA_RATES.cpp
+      const ei = gross * CA_RATES.ei
+      const fed = gross * CA_RATES.federal_tax
+      const prov = gross * CA_RATES.provincial_tax
+      const deductions = cpp + ei + fed + prov
       const net = gross - deductions
-      return { emp: e, rate, regularHours, otHours, basic, ot, gross, fed, state, ss, med, deductions, net }
+      return { emp: e, rate, regularHours, otHours, basic, ot, gross, cpp, ei, fed, prov, deductions, net }
     })
   }, [employees, attendance, selected])
 
   const totals = useMemo(() => rows.reduce((t, r) => ({
     basic: t.basic + r.basic, ot: t.ot + r.ot, gross: t.gross + r.gross,
-    fed: t.fed + r.fed, state: t.state + r.state, ss: t.ss + r.ss, med: t.med + r.med,
+    fed: t.fed + r.fed, prov: t.prov + r.prov, cpp: t.cpp + r.cpp, ei: t.ei + r.ei,
     deductions: t.deductions + r.deductions, net: t.net + r.net,
-  }), { basic: 0, ot: 0, gross: 0, fed: 0, state: 0, ss: 0, med: 0, deductions: 0, net: 0 }), [rows])
+  }), { basic: 0, ot: 0, gross: 0, fed: 0, prov: 0, cpp: 0, ei: 0, deductions: 0, net: 0 }), [rows])
 
   const toggle = (id) => setSelected((prev) => {
     const s = new Set(prev)
@@ -222,8 +223,10 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone }) {
         gross: r.gross, net: r.net, status: 'sent', paid_to: null,
         earnings: { rate_per_hour: r.rate, regular_hours: r.regularHours, ot_hours: r.otHours, basic: r.basic, overtime: r.ot },
         deductions: {
-          federal_income_tax: r.fed, state_income_tax: r.state,
-          social_security: r.ss, medicare: r.med,
+          cpp: r.cpp,
+          ei: r.ei,
+          federal_tax: r.fed,
+          provincial_tax: r.prov,
         },
       }))
       if (slips.length) {
@@ -295,7 +298,7 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone }) {
               <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 12 }}>
                   <thead>
-                    <tr>{['EMPLOYEE','BASIC','OT','FED','STATE','FICA-SS','MEDICARE','NET PAY'].map((h) => (
+                    <tr>{['EMPLOYEE','BASIC','OT','CPP','EI','FED','PROV','NET PAY'].map((h) => (
                       <th key={h} style={{ ...th, padding: '8px 10px', fontSize: 9 }}>{h}</th>
                     ))}</tr>
                   </thead>
@@ -305,10 +308,10 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone }) {
                         <td style={{ ...td, padding: '10px', fontWeight: 600 }}>{r.emp.full_name}</td>
                         <td style={{ ...td, padding: '10px', fontFamily: 'monospace' }}>{fmtUSD(r.basic)}</td>
                         <td style={{ ...td, padding: '10px', fontFamily: 'monospace' }}>{fmtUSD(r.ot)}</td>
+                        <td style={{ ...td, padding: '10px', fontFamily: 'monospace', color: '#b91c1c' }}>{fmtUSD(r.cpp)}</td>
+                        <td style={{ ...td, padding: '10px', fontFamily: 'monospace', color: '#b91c1c' }}>{fmtUSD(r.ei)}</td>
                         <td style={{ ...td, padding: '10px', fontFamily: 'monospace', color: '#b91c1c' }}>{fmtUSD(r.fed)}</td>
-                        <td style={{ ...td, padding: '10px', fontFamily: 'monospace', color: '#b91c1c' }}>{fmtUSD(r.state)}</td>
-                        <td style={{ ...td, padding: '10px', fontFamily: 'monospace', color: '#b91c1c' }}>{fmtUSD(r.ss)}</td>
-                        <td style={{ ...td, padding: '10px', fontFamily: 'monospace', color: '#b91c1c' }}>{fmtUSD(r.med)}</td>
+                        <td style={{ ...td, padding: '10px', fontFamily: 'monospace', color: '#b91c1c' }}>{fmtUSD(r.prov)}</td>
                         <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(r.net)}</td>
                       </tr>
                     ))}
@@ -316,11 +319,11 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone }) {
                       <td style={{ ...td, padding: '10px', fontWeight: 800 }}>Totals ({rows.length} employees)</td>
                       <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(totals.basic)}</td>
                       <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(totals.ot)}</td>
+                      <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(totals.cpp)}</td>
+                      <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(totals.ei)}</td>
                       <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(totals.fed)}</td>
-                      <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(totals.state)}</td>
-                      <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(totals.ss)}</td>
-                      <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(totals.med)}</td>
-                      <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 900, color: '#2563eb' }}>{fmtUSD(totals.net)}</td>
+                      <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(totals.prov)}</td>
+                      <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 900, color: '#dc2626' }}>{fmtUSD(totals.net)}</td>
                     </tr>
                   </tbody>
                 </table>

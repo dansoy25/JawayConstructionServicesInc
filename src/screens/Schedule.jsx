@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { supabase } from '../lib/supabase'
@@ -142,22 +141,8 @@ export default function Schedule() {
         </div>
       )}
 
-      <div style={{ marginTop: 16, display: 'grid', gap: 8 }}>
-        <Link to="/leave" style={{ textDecoration: 'none', padding: '12px 14px', borderRadius: 14, background: cardBg, border: cardBorder, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>Request time off</div>
-            <div style={{ fontSize: 10, color: textMuted }}>File a leave request</div>
-          </div>
-          <div style={{ color: textMuted, fontSize: 14 }}>›</div>
-        </Link>
-        <Link to="/overtime" style={{ textDecoration: 'none', padding: '12px 14px', borderRadius: 14, background: cardBg, border: cardBorder, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>Request overtime</div>
-            <div style={{ fontSize: 10, color: textMuted }}>Log extra hours</div>
-          </div>
-          <div style={{ color: textMuted, fontSize: 14 }}>›</div>
-        </Link>
-      </div>
+      {/* Leave section — moved from standalone nav to live inside Schedule */}
+      <LeaveSection dark={dark} cardBg={cardBg} cardBorder={cardBorder} textPrimary={textPrimary} textMuted={textMuted} />
 
       <div style={{ height: 30 }} />
     </div>
@@ -192,4 +177,134 @@ function fmt12h(hhmm) {
   if (h < 12) return `${h}:${pad} AM`
   if (h === 12) return `12:${pad} PM`
   return `${h - 12}:${pad} PM`
+}
+
+// ─── Leave section (moved here from the top-level /leave route) ──────────
+
+function LeaveSection({ dark, cardBg, cardBorder, textPrimary, textMuted }) {
+  const { profile } = useAuth()
+  const [types, setTypes] = useState([])
+  const [requests, setRequests] = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [typeId, setTypeId] = useState('')
+  const [start, setStart] = useState(new Date().toISOString().slice(0, 10))
+  const [end, setEnd] = useState(new Date().toISOString().slice(0, 10))
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const load = async () => {
+    if (!profile?.id) return
+    const [t, r] = await Promise.all([
+      supabase.from('leave_types').select('*').eq('org_id', profile.org_id).not('code', 'ilike', 'OT'),
+      supabase.from('leave_requests').select('*, leave_type:leave_types(*)').eq('profile_id', profile.id).order('created_at', { ascending: false }).limit(10),
+    ])
+    setTypes(t.data || [])
+    setRequests(r.data || [])
+    if ((t.data || []).length && !typeId) setTypeId(t.data[0].id)
+  }
+  useEffect(() => { load() /* eslint-disable-next-line */ }, [profile?.id])
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setBusy(true); setMsg('')
+    try {
+      const days = Math.max(1, Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1)
+      const { error } = await supabase.from('leave_requests').insert({
+        profile_id: profile.id, org_id: profile.org_id, leave_type_id: typeId,
+        start_date: start, end_date: end, days, reason, status: 'pending',
+      })
+      if (error) throw error
+      setMsg('Request submitted — pending admin approval.')
+      setShowForm(false); setReason(''); load()
+    } catch (e) { setMsg(e.message) }
+    setBusy(false)
+  }
+
+  const statusChip = (s) => {
+    const cfg = {
+      approved: { bg: '#DCFCE7', color: '#15803d', label: 'Approved' },
+      pending:  { bg: '#FEF3C7', color: '#a16207', label: 'Pending' },
+      rejected: { bg: '#FEE2E2', color: '#b91c1c', label: 'Declined' },
+      declined: { bg: '#FEE2E2', color: '#b91c1c', label: 'Declined' },
+    }[s] || { bg: '#F1F5F9', color: '#64748b', label: s || '—' }
+    return <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, background: cfg.bg, padding: '3px 10px', borderRadius: 999 }}>{cfg.label}</span>
+  }
+
+  const inputBg = dark ? 'rgba(255,255,255,.04)' : '#fff'
+  const inputStyle = { padding: '10px 12px', border: cardBorder, borderRadius: 10, background: inputBg, color: textPrimary, fontSize: 13 }
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: textPrimary }}>Leave</div>
+          <div style={{ fontSize: 10, color: textMuted, marginTop: 1 }}>Request time off — admin reviews</div>
+        </div>
+        <button onClick={() => setShowForm((v) => !v)} style={{
+          background: 'linear-gradient(135deg,#dc2626,#0f172a)', color: '#fff', border: 'none',
+          padding: '7px 14px', borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+          boxShadow: '0 3px 6px rgba(220,38,38,.3)',
+        }}>{showForm ? 'Cancel' : '+ Request leave'}</button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={submit} style={{ marginTop: 8, padding: 14, borderRadius: 14, background: cardBg, border: cardBorder, display: 'grid', gap: 10 }}>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: textMuted }}>LEAVE TYPE</span>
+            {types.length ? (
+              <select value={typeId} onChange={(e) => setTypeId(e.target.value)} required style={inputStyle}>
+                {types.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+            ) : (
+              <input value="Vacation" readOnly style={inputStyle} />
+            )}
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <label style={{ display: 'grid', gap: 4 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: textMuted }}>START</span>
+              <input type="date" value={start} onChange={(e) => setStart(e.target.value)} required style={inputStyle} />
+            </label>
+            <label style={{ display: 'grid', gap: 4 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: textMuted }}>END</span>
+              <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} required style={inputStyle} />
+            </label>
+          </div>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: textMuted }}>REASON</span>
+            <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows="2" style={{ ...inputStyle, resize: 'vertical' }} />
+          </label>
+          {msg && <div style={{ fontSize: 11, fontWeight: 600, color: msg.includes('submitted') ? '#16a34a' : '#b91c1c' }}>{msg}</div>}
+          <button type="submit" disabled={busy || (!typeId && !types.length)} style={{
+            padding: '12px 0', borderRadius: 10, border: 'none',
+            background: 'linear-gradient(135deg,#dc2626,#0f172a)', color: '#fff',
+            fontWeight: 800, fontSize: 13, cursor: 'pointer', opacity: busy ? 0.6 : 1,
+          }}>{busy ? 'Submitting…' : 'Submit request'}</button>
+        </form>
+      )}
+
+      {/* My requests */}
+      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {requests.length === 0 ? (
+          <div style={{ padding: 12, borderRadius: 12, background: cardBg, border: cardBorder, textAlign: 'center', fontSize: 11, color: textMuted }}>
+            No leave requests yet. Tap <b>+ Request leave</b> to file one.
+          </div>
+        ) : requests.map((r) => (
+          <div key={r.id} style={{ padding: 10, borderRadius: 12, background: cardBg, border: cardBorder }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>{r.leave_type?.label || 'Leave'}</div>
+              {statusChip(r.status)}
+            </div>
+            <div style={{ fontSize: 10, color: textMuted, marginTop: 3 }}>
+              {new Date(r.start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+              {' — '}
+              {new Date(r.end_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+              {` · ${r.days} day${r.days > 1 ? 's' : ''}`}
+            </div>
+            {r.reason && <div style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>{r.reason}</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }

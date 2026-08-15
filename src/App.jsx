@@ -8,6 +8,7 @@ import AdminShell from './components/AdminShell'
 import AdminLogin from './screens/AdminLogin'
 import Login from './screens/Login'
 import Home from './screens/Home'
+import Payslip from './screens/Payslip'
 import ClockIn from './screens/ClockIn'
 import Attendance from './screens/Attendance'
 import Schedule from './screens/Schedule'
@@ -118,6 +119,7 @@ export default function App() {
             <Route path="profile/personal" element={<PersonalInfo />} />
             <Route path="profile/security" element={<Security />} />
             <Route path="notifications" element={<Notifications />} />
+            <Route path="payslip" element={<Payslip />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

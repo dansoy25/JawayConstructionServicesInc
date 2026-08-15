@@ -1,6 +1,14 @@
 @import "tailwindcss";
 
-:root { color-scheme: light dark; }
+:root {
+  color-scheme: light dark;
+  /* Brand accent variable, defaults to red; driven by ThemeContext */
+  --accent: #DC2626;
+  /* Balanced White / Red / Black palette for Login + Dashboard defaults */
+  --brand-ink: #0F172A;
+  --brand-red: #DC2626;
+  --brand-canvas: #FFFFFF;
+}
 html, body, #root { height: 100%; }
 body {
   margin: 0;

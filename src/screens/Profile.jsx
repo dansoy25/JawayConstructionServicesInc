@@ -7,7 +7,7 @@ import { initials } from '../lib/util'
 
 export default function Profile() {
   const { profile, session, signOut, refreshProfile } = useAuth()
-  const { theme } = useTheme()
+  const { theme, accent, setAccent, accents } = useTheme()
   const dark = theme === 'dark'
   const nav = useNavigate()
   const fileRef = useRef(null)
@@ -113,6 +113,32 @@ export default function Profile() {
         <StatTile bg={cardBg} border={cardBorder} label="Attendance" value="22" color="#2563eb" textPrimary={textPrimary} textMuted={textMuted} />
         <StatTile bg={cardBg} border={cardBorder} label="On-time" value="98%" color="#16a34a" textPrimary={textPrimary} textMuted={textMuted} />
         <StatTile bg={cardBg} border={cardBorder} label="OT hours" value="36" color="#a16207" textPrimary={textPrimary} textMuted={textMuted} />
+      </div>
+
+      {/* Accent picker (5 colors) */}
+      <div style={{ marginTop: 14, padding: 14, borderRadius: 14, background: cardBg, border: cardBorder }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>Accent color</div>
+            <div style={{ fontSize: 10, color: textMuted, marginTop: 1 }}>Choose your app accent</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {accents.map((a) => (
+            <button
+              key={a.key}
+              onClick={() => setAccent(a.key)}
+              title={a.label}
+              style={{
+                width: 34, height: 34, borderRadius: '50%',
+                background: a.color,
+                border: accent === a.key ? '3px solid #fff' : '2px solid rgba(0,0,0,.08)',
+                boxShadow: accent === a.key ? `0 0 0 2px ${a.color}` : 'none',
+                cursor: 'pointer',
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Menu */}
