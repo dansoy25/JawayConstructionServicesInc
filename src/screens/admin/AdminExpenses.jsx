@@ -23,6 +23,10 @@ export default function AdminExpenses() {
   const [rows, setRows] = useState([])
   const [addOpen, setAddOpen] = useState(false)
   const [viewing, setViewing] = useState(null)
+  const [search, setSearch] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
 
   const load = () => {
     if (!profile?.org_id) return
@@ -33,6 +37,21 @@ export default function AdminExpenses() {
       .then(({ data }) => setRows(data || []))
   }
   useEffect(load, [profile?.org_id])
+
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return rows.filter((r) => {
+      if (categoryFilter !== 'all' && r.category !== categoryFilter) return false
+      if (dateFrom && r.spent_on < dateFrom) return false
+      if (dateTo && r.spent_on > dateTo) return false
+      if (q && !(
+        (r.description || '').toLowerCase().includes(q) ||
+        (r.category || '').toLowerCase().includes(q) ||
+        String(r.amount || '').includes(q)
+      )) return false
+      return true
+    })
+  }, [rows, search, dateFrom, dateTo, categoryFilter])
 
   const totals = useMemo(() => {
     const t = { all: 0, byCat: {}, monthly: 0 }
@@ -63,7 +82,7 @@ export default function AdminExpenses() {
           <button onClick={() => exportCsv(
             `expenses-${todayStamp()}.csv`,
             ['Date', 'Category', 'Amount', 'Description', 'Receipt URL'],
-            rows.map((r) => [r.spent_on, r.category, r.amount, r.description || '', r.receipt_url || ''])
+            filteredRows.map((r) => [r.spent_on, r.category, r.amount, r.description || '', r.receipt_url || ''])
           )} style={btnGhost}>⬇ CSV</button>
           <button onClick={printPage} style={btnGhost}>📄 PDF</button>
         </>}
@@ -100,15 +119,38 @@ export default function AdminExpenses() {
         })}
       </div>
 
+      {/* Search + date-range + category filter bar */}
+      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 12, marginBottom: 16, display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 12px' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search description, category, amount…" style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 12 }} />
+          {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14 }}>✕</button>}
+        </div>
+        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="From" title="From date"
+          style={{ padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, color: '#334155', background: '#fff', fontWeight: 600 }} />
+        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="To" title="To date"
+          style={{ padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, color: '#334155', background: '#fff', fontWeight: 600 }} />
+        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
+          style={{ padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, color: '#334155', background: '#fff', fontWeight: 700 }}>
+          <option value="all">All categories</option>
+          {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+        </select>
+        <button onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); setCategoryFilter('all') }}
+          style={{ ...btnGhost, padding: '8px 12px', fontSize: 11 }}>Clear</button>
+      </div>
+
       <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden' }}>
-        <div style={{ padding: 16, borderBottom: '1px solid #f1f5f9', fontSize: 14, fontWeight: 800, color: '#0f172a' }}>All receipts</div>
+        <div style={{ padding: 16, borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>All receipts</div>
+          <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{filteredRows.length} of {rows.length}</div>
+        </div>
         <table style={table}>
           <thead>
             <tr>{['DATE', 'CATEGORY', 'AMOUNT', 'DESCRIPTION', 'PHOTO', ''].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan="6" style={{ ...td, textAlign: 'center', padding: 30, color: '#94a3b8' }}>No receipts yet. Click "+ Add receipt".</td></tr>}
-            {rows.map((r) => {
+            {filteredRows.length === 0 && <tr><td colSpan="6" style={{ ...td, textAlign: 'center', padding: 30, color: '#94a3b8' }}>{rows.length === 0 ? 'No receipts yet. Click "+ Add receipt".' : 'No receipts match your filters.'}</td></tr>}
+            {filteredRows.map((r) => {
               const c = catCfg(r.category)
               return (
                 <tr key={r.id}>
@@ -223,15 +265,32 @@ function AddExpenseModal({ orgId, uploadedBy, onClose, onSaved }) {
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="e.g. Cement bags for site 3"
               style={{ ...inputBox, resize: 'vertical' }} />
           </label>
-          <label style={{ display: 'grid', gap: 4 }}>
+          <div style={{ display: 'grid', gap: 4 }}>
             <span style={fieldLbl}>RECEIPT PHOTO</span>
-            <input type="file" accept="image/*" onChange={onPick} style={{ fontSize: 12 }} />
+            <label style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '14px 16px', borderRadius: 12,
+              border: '2px dashed #cbd5e1', background: '#f8fafc',
+              color: '#334155', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              {file ? `📎 ${file.name}` : '📷 Upload receipt photo'}
+              <input type="file" accept="image/*" onChange={onPick} style={{ display: 'none' }} />
+            </label>
+            {file && (
+              <button type="button" onClick={() => { setFile(null); setPreview(null) }}
+                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 11, fontWeight: 700, textAlign: 'left' }}>
+                ✕ Remove photo
+              </button>
+            )}
             {preview && (
               <div style={{ marginTop: 8, padding: 10, background: '#f8fafc', borderRadius: 10, textAlign: 'center' }}>
                 <img src={preview} alt="preview" style={{ maxHeight: 200, maxWidth: '100%', borderRadius: 8 }} />
               </div>
             )}
-          </label>
+          </div>
           {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
             <button type="button" onClick={onClose} style={btnGhost}>Cancel</button>

@@ -191,10 +191,13 @@ export default function AdminAttendance() {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 20 }}>
-        <StatTile label="PRESENT" value={stats.present} sub={`of ${stats.total} employees`} accent="#22c55e" />
-        <StatTile label="LATE" value={stats.lateCount} sub={stats.lateCount ? `avg ${stats.lateAvg} min late` : 'nobody late'} accent="#f59e0b" />
-        <StatTile label="ABSENT" value={stats.absent} sub={stats.absent ? 'Needs follow-up' : 'All accounted for'} subColor={stats.absent ? '#b91c1c' : '#15803d'} accent="#ef4444" />
-        <StatTile label="AVG HOURS" value={stats.avgHours ? `${stats.avgHours.toFixed(1)}h` : '—'} sub="target: 8h" accent="#2563eb" />
+        <ClickableStat active={statusFilter === 'present'} onClick={() => setStatusFilter(statusFilter === 'present' ? 'all' : 'present')}
+          label="PRESENT" value={stats.present} sub={`of ${stats.total} · click to filter`} accent="#22c55e" />
+        <ClickableStat active={statusFilter === 'late'} onClick={() => setStatusFilter(statusFilter === 'late' ? 'all' : 'late')}
+          label="LATE" value={stats.lateCount} sub={stats.lateCount ? `avg ${stats.lateAvg} min · click to filter` : 'nobody late'} accent="#f59e0b" />
+        <ClickableStat active={statusFilter === 'absent'} onClick={() => setStatusFilter(statusFilter === 'absent' ? 'all' : 'absent')}
+          label="ABSENT" value={stats.absent} sub={stats.absent ? 'click to filter' : 'All accounted for'} accent="#ef4444" />
+        <ClickableStat label="AVG HOURS" value={stats.avgHours ? `${stats.avgHours.toFixed(1)}h` : '—'} sub="target: 8h" accent="#2563eb" />
       </div>
 
       {absentToday.length > 0 && (
@@ -436,6 +439,31 @@ function DeleteAttendanceDialog({ row, onClose, onDeleted }) {
         </div>
       </div>
     </div>
+  )
+}
+
+function ClickableStat({ label, value, sub, accent, active, onClick }) {
+  const clickable = typeof onClick === 'function'
+  return (
+    <button
+      onClick={onClick}
+      disabled={!clickable}
+      style={{
+        display: 'block', textAlign: 'left', width: '100%',
+        padding: 16, borderRadius: 14,
+        background: '#fff',
+        border: active ? `2px solid ${accent}` : '1px solid #e2e8f0',
+        cursor: clickable ? 'pointer' : 'default',
+        boxShadow: active ? `0 6px 18px ${accent}33` : '0 1px 3px rgba(0,0,0,.04)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: accent }} />
+        <span style={{ fontSize: 10, fontWeight: 800, color: '#64748b', letterSpacing: .5 }}>{label}</span>
+      </div>
+      <div style={{ fontSize: 28, fontWeight: 900, color: '#0f172a' }}>{value}</div>
+      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{sub}</div>
+    </button>
   )
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { supabase } from '../../lib/supabase'
@@ -254,9 +255,10 @@ function AttendancePanel({ settings, orgId, onSaved }) {
 
 function LeavePanel({ orgId }) {
   const [types, setTypes] = useState([])
+  const nav = useNavigate()
   const load = () => orgId && supabase.from('leave_types').select('*').eq('org_id', orgId).order('name').then(({ data }) => setTypes(data || []))
   useEffect(load, [orgId])
-  const goManage = () => window.location.hash = '#/admin/leave'
+  const goManage = () => nav('/admin/leave')
 
   return (
     <>

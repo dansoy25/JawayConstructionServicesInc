@@ -117,20 +117,22 @@ function SiteEditorModal({ site, orgId, onClose, onSaved }) {
 
   useEffect(() => {
     if (!orgId) return
-    supabase.from('profiles')
-      .select('id, full_name, employee_code, site_id, is_admin')
-      .eq('org_id', orgId)
-      .eq('is_admin', false)
-      .order('full_name')
-      .then(({ data }) => {
-        const rows = data || []
-        setEmployees(rows)
-        if (site) {
-          const preAssigned = new Set(rows.filter((p) => p.site_id === site.id).map((p) => p.id))
-          setAssigned(preAssigned)
-          setInitialAssigned(preAssigned)
-        }
-      })
+    ;(async () => {
+      const { data: emps } = await supabase.from('profiles')
+        .select('id, full_name, employee_code, is_admin')
+        .eq('org_id', orgId)
+        .eq('is_admin', false)
+        .order('full_name')
+      setEmployees(emps || [])
+      if (site) {
+        // Pull the many-to-many assignments for THIS site.
+        const { data: assigns } = await supabase.from('site_assignments')
+          .select('profile_id').eq('site_id', site.id)
+        const pre = new Set((assigns || []).map((a) => a.profile_id))
+        setAssigned(pre)
+        setInitialAssigned(pre)
+      }
+    })()
   }, [orgId, site?.id])
 
   const toggleAssign = (id) => {
@@ -188,15 +190,31 @@ function SiteEditorModal({ site, orgId, onClose, onSaved }) {
         const { error } = await supabase.from('sites').update(payload).eq('id', site.id)
         if (error) throw error
       }
+      // Diff many-to-many assignments; profile.site_id is kept as the "primary"
+      // for backwards compat and is set to any assigned site (or cleared if none).
       const toAssign = [...assigned].filter((id) => !initialAssigned.has(id))
       const toUnassign = [...initialAssigned].filter((id) => !assigned.has(id))
       if (toAssign.length) {
-        const { error } = await supabase.from('profiles').update({ site_id: siteId }).in('id', toAssign)
+        const rows = toAssign.map((profile_id) => ({ org_id: orgId, profile_id, site_id: siteId }))
+        const { error } = await supabase.from('site_assignments')
+          .upsert(rows, { onConflict: 'profile_id,site_id' })
         if (error) throw error
       }
       if (toUnassign.length) {
-        const { error } = await supabase.from('profiles').update({ site_id: null }).in('id', toUnassign)
+        const { error } = await supabase.from('site_assignments')
+          .delete().eq('site_id', siteId).in('profile_id', toUnassign)
         if (error) throw error
+      }
+      // Sync legacy profile.site_id to any remaining assignment for those employees.
+      const affected = [...new Set([...toAssign, ...toUnassign])]
+      if (affected.length) {
+        const { data: current } = await supabase.from('site_assignments')
+          .select('profile_id, site_id').in('profile_id', affected)
+        const primary = new Map()
+        for (const a of current || []) if (!primary.has(a.profile_id)) primary.set(a.profile_id, a.site_id)
+        for (const id of affected) {
+          await supabase.from('profiles').update({ site_id: primary.get(id) || null }).eq('id', id)
+        }
       }
       onSaved()
     } catch (e) { setErr(e.message || 'Save failed.') }
@@ -286,7 +304,7 @@ function SiteEditorModal({ site, orgId, onClose, onSaved }) {
               ) : (
                 employees.map((emp) => {
                   const isOn = assigned.has(emp.id)
-                  const conflictingSite = emp.site_id && emp.site_id !== site?.id
+                  const conflictingSite = false // multi-site assign is allowed now
                   return (
                     <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderBottom: '1px solid #e2e8f0', cursor: 'pointer', background: isOn ? '#eff6ff' : 'transparent' }}>
                       <input type="checkbox" checked={isOn} onChange={() => toggleAssign(emp.id)} style={{ width: 16, height: 16 }} />

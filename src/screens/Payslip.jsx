@@ -52,14 +52,21 @@ export default function Payslip() {
     if (!profile?.id) return
     setLoadErr('')
     // Only show slips the admin has explicitly sent to the employee.
+    // Also fetch the admin's name via sent_by → profiles.
     supabase.from('payslips')
-      .select('*')
+      .select('*, sender:profiles!payslips_sent_by_fkey(full_name)')
       .eq('profile_id', profile.id)
       .not('sent_at', 'is', null)
       .order('period_end', { ascending: false })
       .limit(24)
       .then(({ data, error }) => {
-        if (error) { setLoadErr(error.message); return }
+        if (error) {
+          // If the FK alias fails (older schema), fall back to a plain select.
+          supabase.from('payslips').select('*').eq('profile_id', profile.id)
+            .not('sent_at', 'is', null).order('period_end', { ascending: false }).limit(24)
+            .then(({ data: d2 }) => { setSlips(d2 || []); if ((d2 || []).length && !selected) setSelected(d2[0]) })
+          return
+        }
         setSlips(data || [])
         if ((data || []).length > 0 && !selected) setSelected(data[0])
       })
@@ -213,6 +220,11 @@ export default function Payslip() {
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, opacity: .85 }}>JAWAY CONSTRUCTION SERVICES INC.</div>
                 <div style={{ fontSize: 20, fontWeight: 800, marginTop: 4 }}>Payslip</div>
                 <div style={{ fontSize: 12, opacity: .9, marginTop: 2 }}>{fmtDate(selected.period_start)} — {fmtDate(selected.period_end)}</div>
+                {selected.sent_at && (
+                  <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 8, background: 'rgba(255,255,255,.15)', fontSize: 10, fontWeight: 700, display: 'inline-block' }}>
+                    ✓ Set & sent by {selected.sender?.full_name || 'admin'} · {fmtDate(selected.sent_at)}
+                  </div>
+                )}
               </div>
 
               <div style={{ padding: 18 }}>

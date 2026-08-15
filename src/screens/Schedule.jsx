@@ -23,11 +23,19 @@ export default function Schedule() {
     return { iso: d.toISOString().slice(0, 10), d, day: d.toLocaleDateString('en', { weekday: 'short' }), num: d.getDate() }
   })
 
+  // Compute working-day vs day-off from the profile — NOT hardcoded Sat/Sun.
+  const parseDows = (csv, fallback) => {
+    if (!csv) return new Set(fallback)
+    return new Set(String(csv).split(',').map(Number).filter((n) => !isNaN(n)))
+  }
+  const workDaySet = parseDows(profile?.schedule_days, [1, 2, 3, 4, 5])
+  const dayOffSet = parseDows(profile?.day_off, [0, 6])
+  const isDayOff = (d) => dayOffSet.has(d.getDay()) || !workDaySet.has(d.getDay())
+
   useEffect(() => {
     if (!profile?.org_id) return
     const d = new Date(selected)
-    const isWeekend = d.getDay() === 0 || d.getDay() === 6
-    if (isWeekend) return setShifts([])
+    if (isDayOff(d)) return setShifts([])
 
     // Read the employee's own schedule from profile ("HH:MM-HH:MM"),
     // falling back to 08:00-17:00 if not set.
@@ -50,7 +58,7 @@ export default function Schedule() {
   }, [selected, profile?.org_id, profile?.schedule, site?.name])
 
   const selectedDate = new Date(selected)
-  const isWeekend = selectedDate.getDay() === 0 || selectedDate.getDay() === 6
+  const selectedIsDayOff = isDayOff(selectedDate)
 
   return (
     <div style={{ background: bg, minHeight: '100%', padding: '8px 20px 0', fontFamily: "'Inter',system-ui,sans-serif" }}>
@@ -73,7 +81,7 @@ export default function Schedule() {
         >
           {days.map((d) => {
             const active = d.iso === selected
-            const isWknd = d.d.getDay() === 0 || d.d.getDay() === 6
+            const isWknd = isDayOff(d.d)
             return (
               <button key={d.iso} onClick={() => setSelected(d.iso)} style={{
                 minWidth: 52, padding: '10px 8px', borderRadius: 14,
@@ -111,7 +119,7 @@ export default function Schedule() {
         {selectedDate.toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' })}
       </div>
 
-      {isWeekend ? (
+      {selectedIsDayOff ? (
         <div style={{ marginTop: 12, padding: 20, borderRadius: 18, background: 'linear-gradient(135deg,#1e40af,#2563eb)', color: '#fff', textAlign: 'center' }}>
           <div style={{ fontSize: 12, opacity: .85, fontWeight: 600 }}>{selectedDate.toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
           <div style={{ fontSize: 32, fontWeight: 900, marginTop: 6 }}>Day off</div>
@@ -196,12 +204,14 @@ function LeaveSection({ dark, cardBg, cardBorder, textPrimary, textMuted }) {
   const load = async () => {
     if (!profile?.id) return
     const [t, r] = await Promise.all([
-      supabase.from('leave_types').select('*').eq('org_id', profile.org_id).not('code', 'ilike', 'OT'),
+      supabase.from('leave_types').select('*').eq('org_id', profile.org_id),
       supabase.from('leave_requests').select('*, leave_type:leave_types(*)').eq('profile_id', profile.id).order('created_at', { ascending: false }).limit(10),
     ])
-    setTypes(t.data || [])
+    // Hide OT-tracking type from the employee-facing picker (it's admin-only).
+    const publicTypes = (t.data || []).filter((x) => (x.code || '').toUpperCase() !== 'OT')
+    setTypes(publicTypes)
     setRequests(r.data || [])
-    if ((t.data || []).length && !typeId) setTypeId(t.data[0].id)
+    if (publicTypes.length && !typeId) setTypeId(publicTypes[0].id)
   }
   useEffect(() => { load() /* eslint-disable-next-line */ }, [profile?.id])
 
@@ -212,7 +222,7 @@ function LeaveSection({ dark, cardBg, cardBorder, textPrimary, textMuted }) {
       const days = Math.max(1, Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1)
       const { error } = await supabase.from('leave_requests').insert({
         profile_id: profile.id, org_id: profile.org_id, leave_type_id: typeId,
-        start_date: start, end_date: end, days, reason, status: 'pending',
+        date_from: start, date_to: end, days, reason, status: 'pending',
       })
       if (error) throw error
       setMsg('Request submitted — pending admin approval.')
@@ -254,7 +264,7 @@ function LeaveSection({ dark, cardBg, cardBorder, textPrimary, textMuted }) {
             <span style={{ fontSize: 10, fontWeight: 700, color: textMuted }}>LEAVE TYPE</span>
             {types.length ? (
               <select value={typeId} onChange={(e) => setTypeId(e.target.value)} required style={inputStyle}>
-                {types.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             ) : (
               <input value="Vacation" readOnly style={inputStyle} />
@@ -292,13 +302,13 @@ function LeaveSection({ dark, cardBg, cardBorder, textPrimary, textMuted }) {
         ) : requests.map((r) => (
           <div key={r.id} style={{ padding: 10, borderRadius: 12, background: cardBg, border: cardBorder }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>{r.leave_type?.label || 'Leave'}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>{r.leave_type?.name || 'Leave'}</div>
               {statusChip(r.status)}
             </div>
             <div style={{ fontSize: 10, color: textMuted, marginTop: 3 }}>
-              {new Date(r.start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+              {new Date(r.date_from).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
               {' — '}
-              {new Date(r.end_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+              {new Date(r.date_to).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
               {` · ${r.days} day${r.days > 1 ? 's' : ''}`}
             </div>
             {r.reason && <div style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>{r.reason}</div>}

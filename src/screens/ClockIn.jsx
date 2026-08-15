@@ -7,7 +7,7 @@ import { manilaToday, distanceMeters, getCurrentPosition, hoursBetween, fmtTime 
 import MapView from '../components/MapView'
 
 export default function ClockIn() {
-  const { profile, site } = useAuth()
+  const { profile, site: primarySite } = useAuth()
   const { theme } = useTheme()
   const dark = theme === 'dark'
   const nav = useNavigate()
@@ -17,15 +17,40 @@ export default function ClockIn() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [now, setNow] = useState(new Date())
+  // All sites the employee is allowed to clock in at (multi-site support).
+  const [allowedSites, setAllowedSites] = useState([])
 
   useEffect(() => {
     getCurrentPosition().then(setPos).catch((e) => setPosErr(e.message || 'GPS unavailable'))
     if (profile?.id) {
       supabase.from('attendance').select('*').eq('profile_id', profile.id).eq('work_date', manilaToday()).maybeSingle().then(({ data }) => setToday(data))
+      // Pull every site assigned to this employee via site_assignments.
+      supabase.from('site_assignments')
+        .select('site:sites(id, name, lat, lng, radius_m)')
+        .eq('profile_id', profile.id)
+        .then(({ data }) => {
+          const rows = (data || []).map((r) => r.site).filter(Boolean)
+          // Fall back to legacy single-site link so existing installs keep working.
+          if (rows.length === 0 && primarySite) rows.push(primarySite)
+          setAllowedSites(rows)
+        })
     }
     const t = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(t)
   }, [profile?.id])
+
+  // Pick the closest assigned site to the current position; that's the site the user is trying to clock into.
+  const site = (() => {
+    if (!allowedSites.length) return primarySite || null
+    if (!pos) return allowedSites[0]
+    let best = allowedSites[0], bestD = Infinity
+    for (const s of allowedSites) {
+      if (s.lat == null || s.lng == null) continue
+      const d = distanceMeters(pos.lat, pos.lng, s.lat, s.lng)
+      if (d < bestD) { bestD = d; best = s }
+    }
+    return best
+  })()
 
   const dist = pos && site?.lat && site?.lng ? distanceMeters(pos.lat, pos.lng, site.lat, site.lng) : null
   const withinFence = dist != null && dist <= (site?.radius_m || 120)

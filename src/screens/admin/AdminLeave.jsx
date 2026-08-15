@@ -219,6 +219,7 @@ function LeaveTypeChips({ types, rows, onManage }) {
 // ─── Calendar with real leave overlays ─────────────────────────────────
 
 function LeaveCalendar({ rows, types, monthOffset, setMonthOffset, calStart, onCustomize }) {
+  const [openDay, setOpenDay] = useState(null) // ISO date the user clicked
   const anchor = new Date()
   anchor.setMonth(anchor.getMonth() + monthOffset)
   const y = anchor.getFullYear(), m = anchor.getMonth()
@@ -258,11 +259,14 @@ function LeaveCalendar({ rows, types, monthOffset, setMonthOffset, calStart, onC
         {Array.from({ length: leadOffset }).map((_, i) => <div key={`e${i}`} />)}
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const day = i + 1
+          const dISO = iso(new Date(y, m, day))
           const leaves = dayLeaves(day)
-          const isToday = iso(new Date(y, m, day)) === new Date().toISOString().slice(0, 10)
+          const isToday = dISO === new Date().toISOString().slice(0, 10)
           return (
-            <div key={day} title={leaves.map((l) => `${l.profile?.full_name}: ${l.leave_type?.name || 'Leave'}`).join('\n')}
-              style={{ aspectRatio: '1/1', border: isToday ? '2px solid #2563eb' : '1px solid #f1f5f9', borderRadius: 6, padding: 4, fontSize: 10, color: '#64748b', display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}
+            <button key={day}
+              onClick={() => setOpenDay(dISO)}
+              title={leaves.map((l) => `${l.profile?.full_name}: ${l.leave_type?.name || 'Leave'}`).join('\n')}
+              style={{ aspectRatio: '1/1', border: isToday ? '2px solid #2563eb' : '1px solid #f1f5f9', borderRadius: 6, padding: 4, fontSize: 10, color: '#64748b', display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden', background: leaves.length ? '#f8fafc' : '#fff', cursor: 'pointer', textAlign: 'left' }}
             >
               <div style={{ fontWeight: isToday ? 800 : 600, color: isToday ? '#2563eb' : '#334155' }}>{day}</div>
               <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -271,10 +275,42 @@ function LeaveCalendar({ rows, types, monthOffset, setMonthOffset, calStart, onC
                 ))}
                 {leaves.length > 3 && <span style={{ fontSize: 9, color: '#94a3b8' }}>+{leaves.length - 3}</span>}
               </div>
-            </div>
+            </button>
           )
         })}
       </div>
+
+      {openDay && (() => {
+        const dLeaves = rows.filter((r) => r.status === 'approved' && r.date_from <= openDay && r.date_to >= openDay)
+        return (
+          <div onClick={() => setOpenDay(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: '#fff', borderRadius: 16, padding: 20, boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>{new Date(openDay).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{dLeaves.length} employee{dLeaves.length === 1 ? '' : 's'} on leave</div>
+                </div>
+                <button onClick={() => setOpenDay(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 20 }}>✕</button>
+              </div>
+              {dLeaves.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>No approved leave on this day.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {dLeaves.map((l) => (
+                    <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: '#f8fafc', borderRadius: 10 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: typeColor(l.leave_type_id) }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{l.profile?.full_name || 'Employee'}</div>
+                        <div style={{ fontSize: 10, color: '#64748b' }}>{l.leave_type?.name || 'Leave'} · {l.date_from} → {l.date_to}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
     </>
   )
 }
@@ -284,7 +320,6 @@ function LeaveCalendar({ rows, types, monthOffset, setMonthOffset, calStart, onC
 function LeaveTypesDialog({ orgId, types, onClose, onSaved }) {
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
-  const [color, setColor] = useState(DEFAULT_COLORS[0])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [local, setLocal] = useState(types)
@@ -294,12 +329,15 @@ function LeaveTypesDialog({ orgId, types, onClose, onSaved }) {
     if (!name.trim()) { setErr('Name is required.'); return }
     setBusy(true); setErr('')
     try {
+      // Auto-cycle through the palette so calendar chips still get a color,
+      // without asking the admin to pick one.
+      const autoColor = DEFAULT_COLORS[local.length % DEFAULT_COLORS.length]
       const { data, error } = await supabase.from('leave_types').insert({
-        org_id: orgId, name: name.trim(), code: code.trim() || null, color,
+        org_id: orgId, name: name.trim(), code: code.trim() || null, color: autoColor,
       }).select().single()
       if (error) throw error
       setLocal([...local, data])
-      setName(''); setCode(''); setColor(DEFAULT_COLORS[(local.length + 1) % DEFAULT_COLORS.length])
+      setName(''); setCode('')
     } catch (e) { setErr(e.message || 'Add failed.') }
     setBusy(false)
   }
@@ -332,13 +370,6 @@ function LeaveTypesDialog({ orgId, types, onClose, onSaved }) {
           </div>
           <button type="submit" disabled={busy} style={{ ...btnPrimary, opacity: busy ? .6 : 1 }}>{busy ? '…' : '+ Add'}</button>
         </form>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', alignSelf: 'center' }}>COLOR:</span>
-          {DEFAULT_COLORS.map((c) => (
-            <button key={c} onClick={() => setColor(c)} type="button"
-              style={{ width: 22, height: 22, borderRadius: '50%', background: c, border: color === c ? '3px solid #0f172a' : '1px solid #e2e8f0', cursor: 'pointer' }} />
-          ))}
-        </div>
         {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600, marginBottom: 10 }}>{err}</div>}
 
         <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>

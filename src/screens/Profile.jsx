@@ -73,7 +73,7 @@ export default function Profile() {
 
       {/* Menu */}
       <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <MenuRow to="/profile/personal" icon={<><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></>} iconBg="#DBEAFE" iconColor="#2563eb" label="Personal information" desc="Name, phone, avatar" cardBg={cardBg} border={cardBorder} textPrimary={textPrimary} textMuted={textMuted} />
+        <MenuRow to="/profile/personal" icon={<><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></>} iconBg="#DBEAFE" iconColor="#2563eb" label="Personal information" desc="Admin-managed · view only" cardBg={cardBg} border={cardBorder} textPrimary={textPrimary} textMuted={textMuted} />
         <MenuRow to="/profile/security" icon={<><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6z"/></>} iconBg="#EDE9FE" iconColor="#7c3aed" label="Security & access" desc="Change password" cardBg={cardBg} border={cardBorder} textPrimary={textPrimary} textMuted={textMuted} />
         <MenuRow to="/notifications" icon={<><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></>} iconBg="#FEF3C7" iconColor="#a16207" label="Notifications" desc="Recent alerts & prefs" cardBg={cardBg} border={cardBorder} textPrimary={textPrimary} textMuted={textMuted} />
       </div>
