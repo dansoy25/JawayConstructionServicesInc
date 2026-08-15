@@ -3,16 +3,16 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/util'
 import { card, table, th, td, btnPrimary, btnGhost, chip, StatTile, PageHeader } from './adminShared'
+import { exportCsv, printPage, todayStamp } from '../../lib/exports'
 
-// Canadian deduction rates. Rates default to 0 so gross = net for testing;
-// admin can bump them in Settings once ready to actually withhold.
-const CA_RATES = {
-  cpp:            0.00,   // Canada Pension Plan (typically 5.95% up to YMPE)
-  ei:             0.00,   // Employment Insurance (typically 1.66%)
-  federal_tax:    0.00,   // Federal income tax withholding
-  provincial_tax: 0.00,   // Provincial income tax withholding
+// Default rates while org_settings loads. Overridden by the values in
+// org_settings, which admin can edit inline on this page.
+const DEFAULT_CA_RATES = {
+  cpp:            0.00,
+  ei:             0.00,
+  federal_tax:    0.00,
+  provincial_tax: 0.00,
 }
-const US_RATES = CA_RATES // backwards-compat alias used elsewhere in the file
 
 function fmtUSD(n) {
   const v = Number(n) || 0
@@ -33,12 +33,28 @@ export default function AdminPayroll() {
   const { profile } = useAuth()
   const [runs, setRuns] = useState([])
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [settings, setSettings] = useState(null) // org_settings row (may be null)
+  const [editRates, setEditRates] = useState(false)
+  const [editSchedule, setEditSchedule] = useState(false)
 
   const load = () => {
     if (!profile?.org_id) return
     supabase.from('payroll_runs').select('*').eq('org_id', profile.org_id).order('period_end', { ascending: false }).limit(20).then(({ data }) => setRuns(data || []))
+    supabase.from('org_settings').select('*').eq('org_id', profile.org_id).maybeSingle().then(({ data }) => setSettings(data))
   }
   useEffect(() => { load() }, [profile?.org_id])
+
+  const rates = {
+    cpp: Number(settings?.cpp_rate ?? DEFAULT_CA_RATES.cpp),
+    ei: Number(settings?.ei_rate ?? DEFAULT_CA_RATES.ei),
+    federal_tax: Number(settings?.federal_tax_rate ?? DEFAULT_CA_RATES.federal_tax),
+    provincial_tax: Number(settings?.provincial_tax_rate ?? DEFAULT_CA_RATES.provincial_tax),
+  }
+  const schedule = {
+    frequency: settings?.pay_frequency || 'semi-monthly',
+    cutoff: settings?.cutoff_days || '15,end',
+    payout: settings?.payout_days || '5,20',
+  }
 
   const currentPeriod = useMemo(() => {
     const now = new Date()
@@ -61,8 +77,15 @@ export default function AdminPayroll() {
         title="Payroll"
         sub={`Semi-monthly · next cutoff ${fmtDate(currentPeriod.end)}`}
         actions={<>
-          <button style={btnGhost}>⬇ CSV</button>
-          <button style={btnGhost}>📄 PDF</button>
+          <button
+            onClick={() => exportCsv(
+              `payroll-runs-${todayStamp()}.csv`,
+              ['Period Start', 'Period End', 'Employees', 'Gross', 'Deductions', 'Net', 'Status', 'Created'],
+              runs.map((r) => [r.period_start, r.period_end, r.employee_count, r.gross, r.deductions, r.net, r.status, r.created_at]),
+            )}
+            style={btnGhost}
+          >⬇ CSV</button>
+          <button onClick={printPage} style={btnGhost}>📄 PDF</button>
         </>}
       />
 
@@ -98,31 +121,37 @@ export default function AdminPayroll() {
         </table>
       </div>
 
-      {wizardOpen && <RunPayrollWizard onClose={() => setWizardOpen(false)} onDone={() => { setWizardOpen(false); load() }} orgId={profile?.org_id} defaultPeriod={currentPeriod} />}
+      {wizardOpen && <RunPayrollWizard onClose={() => setWizardOpen(false)} onDone={() => { setWizardOpen(false); load() }} orgId={profile?.org_id} defaultPeriod={currentPeriod} rates={rates} />}
 
       {/* Statutory config summary */}
       <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div style={card}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginBottom: 12 }}>Statutory rates (CA)</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>Statutory rates (CA)</div>
+            <button onClick={() => setEditRates(true)} style={{ ...btnGhost, padding: '6px 12px', fontSize: 11 }}>✎ Edit</button>
+          </div>
           {[
-            { label: 'CPP (Canada Pension Plan)', v: CA_RATES.cpp },
-            { label: 'EI (Employment Insurance)', v: CA_RATES.ei },
-            { label: 'Federal Tax', v: CA_RATES.federal_tax },
-            { label: 'Provincial Tax', v: CA_RATES.provincial_tax },
+            { label: 'CPP (Canada Pension Plan)', v: rates.cpp },
+            { label: 'EI (Employment Insurance)', v: rates.ei },
+            { label: 'Federal Tax', v: rates.federal_tax },
+            { label: 'Provincial Tax', v: rates.provincial_tax },
           ].map((r) => (
             <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
               <span style={{ color: '#334155' }}>{r.label}</span>
               <span style={{ fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>{(r.v * 100).toFixed(2)}%</span>
             </div>
           ))}
-          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 8 }}>All rates are 0% for testing. Adjust in Settings when you're ready to withhold.</div>
+          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 8 }}>Applies to every employee unless they have a per-employee override on their profile.</div>
         </div>
         <div style={card}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginBottom: 12 }}>Pay schedule</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>Pay schedule</div>
+            <button onClick={() => setEditSchedule(true)} style={{ ...btnGhost, padding: '6px 12px', fontSize: 11 }}>✎ Edit</button>
+          </div>
           {[
-            { label: 'Frequency', value: 'Semi-monthly' },
-            { label: 'Cut-off dates', value: '15th & end of month' },
-            { label: 'Pay-out dates', value: '5th & 20th' },
+            { label: 'Frequency', value: prettyFrequency(schedule.frequency) },
+            { label: 'Cut-off dates', value: prettyDays(schedule.cutoff, 'of the month') },
+            { label: 'Pay-out dates', value: prettyDays(schedule.payout, 'of the month') },
           ].map((r) => (
             <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>
               <span style={{ color: '#334155' }}>{r.label}</span>
@@ -131,13 +160,30 @@ export default function AdminPayroll() {
           ))}
         </div>
       </div>
+
+      {editRates && <RatesDialog orgId={profile?.org_id} settings={settings} onClose={() => setEditRates(false)} onSaved={() => { setEditRates(false); load() }} />}
+      {editSchedule && <ScheduleDialog orgId={profile?.org_id} settings={settings} onClose={() => setEditSchedule(false)} onSaved={() => { setEditSchedule(false); load() }} />}
     </div>
   )
 }
 
+function prettyFrequency(f) {
+  return ({ 'weekly': 'Weekly', 'bi-weekly': 'Bi-weekly', 'semi-monthly': 'Semi-monthly', 'monthly': 'Monthly' })[f] || f
+}
+function prettyDays(csv, suffix) {
+  if (!csv) return '—'
+  const parts = String(csv).split(',').map((p) => p.trim()).filter(Boolean)
+  return parts.map((p) => p === 'end' ? 'end of month' : `${p}${ordSuffix(Number(p))}`).join(' & ')
+}
+function ordSuffix(n) {
+  const v = n % 100
+  if (v >= 11 && v <= 13) return 'th'
+  return { 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'
+}
+
 // ─── Wizard ────────────────────────────────────────────────────────────
 
-function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone }) {
+function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone, rates = DEFAULT_CA_RATES }) {
   const [step, setStep] = useState(1)
   const [periodStart, setPeriodStart] = useState(defaultPeriod.start)
   const [periodEnd, setPeriodEnd] = useState(defaultPeriod.end)
@@ -152,7 +198,7 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone }) {
     if (!orgId) return
     Promise.all([
       supabase.from('profiles')
-        .select('id, full_name, employee_code, position, daily_rate, schedule')
+        .select('id, full_name, employee_code, position, daily_rate, schedule, cpp_rate, ei_rate, federal_tax_rate, provincial_tax_rate')
         .eq('org_id', orgId)
         .eq('is_admin', false)
         .order('full_name'),
@@ -182,15 +228,21 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone }) {
       const basic = rate * regularHours
       const ot = rate * 1.5 * otHours
       const gross = basic + ot
-      const cpp = gross * CA_RATES.cpp
-      const ei = gross * CA_RATES.ei
-      const fed = gross * CA_RATES.federal_tax
-      const prov = gross * CA_RATES.provincial_tax
+      // Per-employee override wins if > 0, otherwise the org default rate applies.
+      const pick = (empVal, orgVal) => (Number(empVal) > 0 ? Number(empVal) : Number(orgVal))
+      const cppR = pick(e.cpp_rate, rates.cpp)
+      const eiR = pick(e.ei_rate, rates.ei)
+      const fedR = pick(e.federal_tax_rate, rates.federal_tax)
+      const provR = pick(e.provincial_tax_rate, rates.provincial_tax)
+      const cpp = gross * cppR
+      const ei = gross * eiR
+      const fed = gross * fedR
+      const prov = gross * provR
       const deductions = cpp + ei + fed + prov
       const net = gross - deductions
       return { emp: e, rate, regularHours, otHours, basic, ot, gross, cpp, ei, fed, prov, deductions, net }
     })
-  }, [employees, attendance, selected])
+  }, [employees, attendance, selected, rates])
 
   const totals = useMemo(() => rows.reduce((t, r) => ({
     basic: t.basic + r.basic, ot: t.ot + r.ot, gross: t.gross + r.gross,
@@ -399,3 +451,133 @@ function SumRow({ label, value, big, redIfPositive }) {
     </div>
   )
 }
+
+// ─── Editable statutory rates dialog ─────────────────────────────────
+
+function RatesDialog({ orgId, settings, onClose, onSaved }) {
+  const rateToPct = (r) => (r == null || Number(r) === 0) ? '' : String(Number(r) * 100)
+  const [cpp, setCpp] = useState(rateToPct(settings?.cpp_rate))
+  const [ei, setEi] = useState(rateToPct(settings?.ei_rate))
+  const [fed, setFed] = useState(rateToPct(settings?.federal_tax_rate))
+  const [prov, setProv] = useState(rateToPct(settings?.provincial_tax_rate))
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const submit = async () => {
+    setBusy(true); setErr('')
+    try {
+      const pct = (v) => (v === '' || v == null) ? 0 : Number(v) / 100
+      const payload = {
+        org_id: orgId,
+        cpp_rate: pct(cpp), ei_rate: pct(ei),
+        federal_tax_rate: pct(fed), provincial_tax_rate: pct(prov),
+      }
+      const { error } = await supabase.from('org_settings').upsert(payload, { onConflict: 'org_id' })
+      if (error) throw error
+      onSaved()
+    } catch (e) { setErr(e.message || 'Save failed.') }
+    setBusy(false)
+  }
+
+  return (
+    <div onClick={onClose} style={overlay}>
+      <div onClick={(e) => e.stopPropagation()} style={panel(460)}>
+        <div style={panelHeader}>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Statutory rates (CA)</div>
+          <button onClick={onClose} style={xBtn}>✕</button>
+        </div>
+        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>Enter as percentages. Applies to every employee unless a per-employee override is set.</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <RatePct label="CPP %" value={cpp} onChange={setCpp} />
+          <RatePct label="EI %" value={ei} onChange={setEi} />
+          <RatePct label="FEDERAL %" value={fed} onChange={setFed} />
+          <RatePct label="PROVINCIAL %" value={prov} onChange={setProv} />
+        </div>
+        {err && <div style={errBox}>{err}</div>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+          <button onClick={onClose} style={btnGhost}>Cancel</button>
+          <button onClick={submit} disabled={busy} style={{ ...btnPrimary, opacity: busy ? .6 : 1 }}>{busy ? 'Saving…' : 'Save rates'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ScheduleDialog({ orgId, settings, onClose, onSaved }) {
+  const [frequency, setFrequency] = useState(settings?.pay_frequency || 'semi-monthly')
+  const [cutoff, setCutoff] = useState(settings?.cutoff_days || '15,end')
+  const [payout, setPayout] = useState(settings?.payout_days || '5,20')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const submit = async () => {
+    setBusy(true); setErr('')
+    try {
+      const { error } = await supabase.from('org_settings').upsert({
+        org_id: orgId,
+        pay_frequency: frequency,
+        cutoff_days: cutoff.trim(),
+        payout_days: payout.trim(),
+      }, { onConflict: 'org_id' })
+      if (error) throw error
+      onSaved()
+    } catch (e) { setErr(e.message || 'Save failed.') }
+    setBusy(false)
+  }
+
+  return (
+    <div onClick={onClose} style={overlay}>
+      <div onClick={(e) => e.stopPropagation()} style={panel(460)}>
+        <div style={panelHeader}>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Pay schedule</div>
+          <button onClick={onClose} style={xBtn}>✕</button>
+        </div>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span style={fieldLbl}>FREQUENCY</span>
+            <select value={frequency} onChange={(e) => setFrequency(e.target.value)} style={inputBox}>
+              <option value="weekly">Weekly</option>
+              <option value="bi-weekly">Bi-weekly</option>
+              <option value="semi-monthly">Semi-monthly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </label>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span style={fieldLbl}>CUT-OFF DAYS (comma-separated; use "end" for end of month)</span>
+            <input value={cutoff} onChange={(e) => setCutoff(e.target.value)} placeholder="15,end" style={inputBox} />
+          </label>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span style={fieldLbl}>PAY-OUT DAYS (comma-separated)</span>
+            <input value={payout} onChange={(e) => setPayout(e.target.value)} placeholder="5,20" style={inputBox} />
+          </label>
+        </div>
+        {err && <div style={errBox}>{err}</div>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+          <button onClick={onClose} style={btnGhost}>Cancel</button>
+          <button onClick={submit} disabled={busy} style={{ ...btnPrimary, opacity: busy ? .6 : 1 }}>{busy ? 'Saving…' : 'Save schedule'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RatePct({ label, value, onChange }) {
+  return (
+    <div>
+      <div style={fieldLbl}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', marginTop: 4 }}>
+        <input value={value} onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0.00" inputMode="decimal"
+          style={{ flex: 1, padding: '10px 12px', border: 'none', outline: 'none', fontSize: 13, fontFamily: 'monospace', fontWeight: 700, background: 'transparent' }} />
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', paddingRight: 12 }}>%</span>
+      </div>
+    </div>
+  )
+}
+
+const overlay = { position: 'fixed', inset: 0, background: 'rgba(15,23,42,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20, backdropFilter: 'blur(4px)' }
+const panel = (w) => ({ width: '100%', maxWidth: w, background: '#fff', borderRadius: 16, padding: 22, boxShadow: '0 20px 60px rgba(0,0,0,.3)' })
+const panelHeader = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, color: '#0f172a' }
+const xBtn = { background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 20 }
+const inputBox = { padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none', color: '#0f172a', background: '#fff', fontWeight: 600 }
+const fieldLbl = { fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4 }
+const errBox = { marginTop: 10, padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }

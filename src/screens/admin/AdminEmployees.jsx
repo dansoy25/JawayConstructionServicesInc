@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/util'
 import { card, table, th, td, btnPrimary, btnGhost, chip, StatTile, PageHeader } from './adminShared'
+import { exportCsv, printPage, todayStamp } from '../../lib/exports'
 
 export default function AdminEmployees() {
   const { profile } = useAuth()
@@ -21,7 +22,7 @@ export default function AdminEmployees() {
     const today = new Date().toISOString().slice(0, 10)
     const [r, a, l] = await Promise.all([
       supabase.from('profiles')
-        .select('id, full_name, avatar_url, employee_code, is_admin, position, phone, schedule, daily_rate')
+        .select('id, full_name, avatar_url, employee_code, is_admin, position, phone, schedule, daily_rate, cpp_rate, ei_rate, federal_tax_rate, provincial_tax_rate')
         .eq('org_id', profile.org_id)
         .order('full_name'),
       supabase.from('attendance')
@@ -66,8 +67,22 @@ export default function AdminEmployees() {
         actions={<>
           <button onClick={() => setShowAdd(true)} style={btnPrimary}>+ Add employee</button>
           <button onClick={load} style={btnGhost}>↻ Refresh</button>
-          <button style={btnGhost}>⬇ CSV</button>
-          <button style={btnGhost}>📄 PDF</button>
+          <button
+            onClick={() => exportCsv(
+              `employees-${todayStamp()}.csv`,
+              ['Employee ID', 'Full Name', 'Position', 'Phone', 'Role', 'Hourly Rate', 'Schedule', 'CPP %', 'EI %', 'Federal %', 'Provincial %'],
+              visibleRows.map((r) => [
+                r.employee_code, r.full_name, r.position || '', r.phone || '',
+                r.is_admin ? 'Admin' : 'Employee', r.daily_rate || 0, r.schedule || '',
+                (Number(r.cpp_rate || 0) * 100).toFixed(2),
+                (Number(r.ei_rate || 0) * 100).toFixed(2),
+                (Number(r.federal_tax_rate || 0) * 100).toFixed(2),
+                (Number(r.provincial_tax_rate || 0) * 100).toFixed(2),
+              ]),
+            )}
+            style={btnGhost}
+          >⬇ CSV</button>
+          <button onClick={printPage} style={btnGhost}>📄 PDF</button>
         </>}
       />
 
@@ -183,6 +198,13 @@ function AddEmployeeModal({ onClose, onCreated }) {
   const [shiftStart, setShiftStart] = useState('08:00')
   const [shiftEnd, setShiftEnd] = useState('17:00')
   const [loginAs, setLoginAs] = useState('employee') // 'employee' | 'admin'
+  // Manual per-employee tax overrides — stored as percent strings in the UI,
+  // converted to fractional numeric on save. Leave blank to fall back to
+  // org-wide defaults on the payroll page.
+  const [cppPct, setCppPct] = useState('')
+  const [eiPct, setEiPct] = useState('')
+  const [federalPct, setFederalPct] = useState('')
+  const [provincialPct, setProvincialPct] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [result, setResult] = useState(null)
@@ -195,6 +217,7 @@ function AddEmployeeModal({ onClose, onCreated }) {
     setBusy(true); setErr('')
     try {
       const schedule = shiftStart && shiftEnd ? `${shiftStart}-${shiftEnd}` : null
+      const pctToRate = (v) => (v === '' || v == null) ? undefined : Number(v) / 100
       const { data, error } = await supabase.functions.invoke('create-employee', {
         body: {
           full_name: fullName.trim(),
@@ -209,6 +232,15 @@ function AddEmployeeModal({ onClose, onCreated }) {
       })
       if (error) throw error
       if (data?.error) throw new Error(data.error)
+      // Save per-employee tax overrides if any were provided.
+      const taxUpdate = {}
+      const cpp = pctToRate(cppPct); if (cpp !== undefined) taxUpdate.cpp_rate = cpp
+      const ei = pctToRate(eiPct); if (ei !== undefined) taxUpdate.ei_rate = ei
+      const fed = pctToRate(federalPct); if (fed !== undefined) taxUpdate.federal_tax_rate = fed
+      const prov = pctToRate(provincialPct); if (prov !== undefined) taxUpdate.provincial_tax_rate = prov
+      if (Object.keys(taxUpdate).length && data?.id) {
+        await supabase.from('profiles').update(taxUpdate).eq('id', data.id)
+      }
       setResult(data)
     } catch (e) {
       setErr(e.message || 'Failed to create employee.')
@@ -260,6 +292,13 @@ function AddEmployeeModal({ onClose, onCreated }) {
                   ]}
                 />
               </div>
+
+              <TaxFields
+                cpp={cppPct} setCpp={setCppPct}
+                ei={eiPct} setEi={setEiPct}
+                federal={federalPct} setFederal={setFederalPct}
+                provincial={provincialPct} setProvincial={setProvincialPct}
+              />
 
               {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
 
@@ -410,6 +449,11 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
   const [phone, setPhone] = useState(employee.phone || '')
   const [hourlyRate, setHourlyRate] = useState(employee.daily_rate ? String(employee.daily_rate) : '')
   const [loginAs, setLoginAs] = useState(employee.is_admin ? 'admin' : 'employee')
+  const rateToPct = (r) => (r == null || r === '' || Number(r) === 0) ? '' : String(Number(r) * 100)
+  const [cppPct, setCppPct] = useState(rateToPct(employee.cpp_rate))
+  const [eiPct, setEiPct] = useState(rateToPct(employee.ei_rate))
+  const [federalPct, setFederalPct] = useState(rateToPct(employee.federal_tax_rate))
+  const [provincialPct, setProvincialPct] = useState(rateToPct(employee.provincial_tax_rate))
   const initialSched = parseSchedule(employee.schedule)
   const [shiftStart, setShiftStart] = useState(initialSched.start)
   const [shiftEnd, setShiftEnd] = useState(initialSched.end)
@@ -453,6 +497,7 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
     setBusy(true); setErr('')
     try {
       const schedule = shiftStart && shiftEnd ? `${shiftStart}-${shiftEnd}` : null
+      const pctToRate = (v) => (v === '' || v == null) ? 0 : Number(v) / 100
       const { error } = await supabase.from('profiles').update({
         full_name: fullName.trim(),
         position: position.trim() || null,
@@ -460,6 +505,10 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
         schedule,
         daily_rate: hourlyRate ? Number(hourlyRate) : 0,
         is_admin: loginAs === 'admin',
+        cpp_rate: pctToRate(cppPct),
+        ei_rate: pctToRate(eiPct),
+        federal_tax_rate: pctToRate(federalPct),
+        provincial_tax_rate: pctToRate(provincialPct),
       }).eq('id', employee.id)
       if (error) throw error
       onSaved()
@@ -505,6 +554,13 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
               ]}
             />
           </div>
+
+          <TaxFields
+            cpp={cppPct} setCpp={setCppPct}
+            ei={eiPct} setEi={setEiPct}
+            federal={federalPct} setFederal={setFederalPct}
+            provincial={provincialPct} setProvincial={setProvincialPct}
+          />
 
           {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
 
@@ -612,6 +668,41 @@ function EditEmployeeModal({ employee, onClose, onSaved }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+function TaxFields({ cpp, setCpp, ei, setEi, federal, setFederal, provincial, setProvincial }) {
+  return (
+    <div style={{ marginTop: 4, padding: 14, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10 }}>
+      <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', marginBottom: 2 }}>Manual tax rates (per employee)</div>
+      <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>
+        Overrides the org defaults on the payroll page. Leave blank (or 0) to inherit.
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <PercentField label="CPP %" value={cpp} onChange={setCpp} />
+        <PercentField label="EI %" value={ei} onChange={setEi} />
+        <PercentField label="FEDERAL TAX %" value={federal} onChange={setFederal} />
+        <PercentField label="PROVINCIAL TAX %" value={provincial} onChange={setProvincial} />
+      </div>
+    </div>
+  )
+}
+
+function PercentField({ label, value, onChange }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4, marginBottom: 4 }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff' }}>
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ''))}
+          placeholder="0.00"
+          inputMode="decimal"
+          style={{ flex: 1, boxSizing: 'border-box', padding: '10px 12px', border: 'none', outline: 'none', fontSize: 13, fontFamily: 'monospace', fontWeight: 700, color: '#0f172a', background: 'transparent' }}
+        />
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', paddingRight: 12 }}>%</span>
       </div>
     </div>
   )
