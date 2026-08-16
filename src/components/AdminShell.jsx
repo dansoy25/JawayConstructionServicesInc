@@ -164,29 +164,50 @@ const iconBtn = {
   border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
 }
 
-// Stylised inline SVG that mirrors the Jaway Construction Services logo:
-// black double-roof silhouette with red hammer accents, then a red diamond
-// with a white "J" underneath. Keeps the sidebar self-contained (no image
-// upload needed for the deploy to look complete).
+// Small inline SVG rendition of the Jaway Construction Services logo.
+// If a real PNG is dropped at /public/jaway-logo.png we render that instead —
+// the deploy already handles the fallback if the fetch fails.
 function JawayLogo() {
+  const [imgOk, setImgOk] = useState(true)
+  const src = `${import.meta.env.BASE_URL}jaway-logo.png`
+  if (imgOk) {
+    return (
+      <img
+        src={src}
+        alt="Jaway Construction Services"
+        onError={() => setImgOk(false)}
+        style={{ display: 'block', margin: '8px auto 0', width: 72, height: 'auto', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,.4))' }}
+      />
+    )
+  }
+  // SVG fallback — kept tighter and more detailed to mirror the real crest.
   return (
-    <svg viewBox="0 0 100 88" width="88" height="76" style={{ margin: '10px auto 0', display: 'block' }} aria-hidden="true">
-      {/* left hammer / flag */}
-      <path d="M14 10 L20 4 L26 8 L22 18 Z" fill="#ef4444" />
-      {/* right hammer / flag */}
-      <path d="M86 10 L80 4 L74 8 L78 18 Z" fill="#ef4444" />
-      {/* peak */}
-      <path d="M50 6 L38 24 L62 24 Z" fill="#0f172a" />
-      {/* roof / house silhouette */}
-      <path d="M4 40 L50 12 L96 40 L96 62 L4 62 Z" fill="#0f172a" />
-      {/* windows to hint at houses */}
-      <rect x="18" y="46" width="8" height="8" fill="#fff" opacity=".9" />
-      <rect x="74" y="46" width="8" height="8" fill="#fff" opacity=".9" />
-      {/* door */}
-      <rect x="46" y="46" width="8" height="16" fill="#fff" opacity=".9" />
-      {/* red diamond with J */}
-      <path d="M50 68 L60 78 L50 88 L40 78 Z" fill="#ef4444" />
-      <text x="50" y="82" textAnchor="middle" fontSize="9" fontWeight="900" fill="#fff" fontFamily="Inter, sans-serif">J</text>
+    <svg viewBox="0 0 140 132" width="82" height="78" style={{ display: 'block', margin: '8px auto 0' }} aria-hidden="true">
+      {/* red flag / hammer LEFT — angled outward */}
+      <path d="M28 8 L48 4 L46 18 L34 26 Z" fill="#ef4444" />
+      {/* red flag / hammer RIGHT — angled outward */}
+      <path d="M112 8 L92 4 L94 18 L106 26 Z" fill="#ef4444" />
+      {/* central sharp peak */}
+      <path d="M70 4 L58 22 L82 22 Z" fill="#0f172a" />
+      {/* double-roof silhouette (two overlapping gables like the real crest) */}
+      <path d="M4 52 L36 22 L70 46 L104 22 L136 52 L136 74 L4 74 Z" fill="#0f172a" />
+      {/* extended eaves */}
+      <path d="M4 52 L4 84 L20 68 Z" fill="#0f172a" />
+      <path d="M136 52 L136 84 L120 68 Z" fill="#0f172a" />
+      {/* left window */}
+      <rect x="30" y="56" width="12" height="14" fill="#fff" rx="1"/>
+      <path d="M36 56 L36 70 M30 63 L42 63" stroke="#0f172a" strokeWidth="1"/>
+      {/* right window */}
+      <rect x="98" y="56" width="12" height="14" fill="#fff" rx="1"/>
+      <path d="M104 56 L104 70 M98 63 L110 63" stroke="#0f172a" strokeWidth="1"/>
+      {/* arched door */}
+      <path d="M62 62 L62 74 L78 74 L78 62 Q78 56 70 56 Q62 56 62 62 Z" fill="#fff"/>
+      {/* diamond outline (dark chevron border) */}
+      <path d="M32 96 L70 132 L108 96 L70 82 Z" fill="#0f172a"/>
+      {/* red diamond core */}
+      <path d="M50 100 L70 122 L90 100 L70 90 Z" fill="#ef4444"/>
+      {/* J */}
+      <text x="70" y="112" textAnchor="middle" fontSize="14" fontWeight="900" fill="#fff" fontFamily="Georgia, serif">J</text>
     </svg>
   )
 }
