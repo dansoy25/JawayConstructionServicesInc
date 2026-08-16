@@ -67,9 +67,11 @@ export default function Home() {
       {/* Top bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 2px 12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 14, background: 'linear-gradient(135deg,#2563eb,#0ea5e9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, boxShadow: '0 4px 12px rgba(0,0,0,.26)' }}>
-            {initials(profile?.full_name || 'JR')}
-          </div>
+          <Link to="/profile" title="Open profile" style={{ textDecoration: 'none', width: 42, height: 42, borderRadius: 14, background: 'linear-gradient(135deg,#2563eb,#0ea5e9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, boxShadow: '0 4px 12px rgba(0,0,0,.26)', overflow: 'hidden', flexShrink: 0 }}>
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : initials(profile?.full_name || 'JR')}
+          </Link>
           <div>
             <div style={{ fontSize: 10, color: textMuted, fontWeight: 600 }}>Good morning</div>
             <div style={{ fontSize: 15, fontWeight: 800, color: textPrimary, lineHeight: 1.1 }}>{profile?.full_name || 'Employee'}</div>

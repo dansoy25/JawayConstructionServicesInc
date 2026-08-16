@@ -205,7 +205,7 @@ export default function AdminLogin() {
           <form onSubmit={submit}>
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .4, marginBottom: 6 }}>COMPANY CODE</div>
-              <input className="ts-input-d" type="text" value={companyCode} onChange={(e) => setCompanyCode(e.target.value.toUpperCase())} placeholder="JAWAY-0026"
+              <input className="ts-input-d" type="text" value={companyCode} onChange={(e) => setCompanyCode(e.target.value.toUpperCase())} placeholder="TINGSYNC-2026"
                 style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid rgba(255,255,255,.08)', background: 'rgba(255,255,255,.04)', borderRadius: 12, padding: '13px 16px', color: '#e2e8f0', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', letterSpacing: .5 }} />
             </div>
 

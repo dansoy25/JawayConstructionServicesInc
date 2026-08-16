@@ -261,7 +261,7 @@ function AddEmployeeModal({ onClose, onCreated }) {
               <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 20 }}>✕</button>
             </div>
             <div style={{ fontSize: 12, color: '#64748b', marginBottom: 18 }}>
-              Employee will sign in with their <b>Employee ID</b> + <b>PIN</b> under company code <code>JAWAY-0026</code>.
+              Employee will sign in with their <b>Employee ID</b> + <b>PIN</b> under company code <code>TINGSYNC-2026</code>.
             </div>
 
             <form onSubmit={submit} style={{ display: 'grid', gap: 12 }}>

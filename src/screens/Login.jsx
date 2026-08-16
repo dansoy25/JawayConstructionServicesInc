@@ -199,7 +199,7 @@ export default function Login() {
                 <input
                   value={companyCode}
                   onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
-                  placeholder="JAWAY-0026"
+                  placeholder="TINGSYNC-2026"
                   autoCapitalize="characters" autoCorrect="off"
                   className="ts-login-input"
                   style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#e2e8f0', fontSize: 13, fontWeight: 700, letterSpacing: 1, minWidth: 0 }}

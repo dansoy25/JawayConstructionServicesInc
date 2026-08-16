@@ -1,15 +1,43 @@
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { supabase } from '../lib/supabase'
 import { initials } from '../lib/util'
 
 function fmtUSD(n) { return `$${(Number(n) || 0).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }
 
 export default function Profile() {
-  const { profile, signOut } = useAuth()
+  const { profile, session, signOut, refreshProfile } = useAuth()
   const { theme } = useTheme()
   const dark = theme === 'dark'
   const nav = useNavigate()
+  const fileRef = useRef(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadErr, setUploadErr] = useState('')
+
+  const onPickPhoto = () => fileRef.current?.click()
+  const onFileChosen = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !session?.user?.id) return
+    if (!file.type.startsWith('image/')) { setUploadErr('Please choose an image file.'); return }
+    if (file.size > 4 * 1024 * 1024) { setUploadErr('Image must be under 4MB.'); return }
+    setUploading(true); setUploadErr('')
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const path = `${session.user.id}/${Date.now()}.${ext}`
+      const up = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true })
+      if (up.error) throw up.error
+      const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
+      const upd = await supabase.from('profiles').update({ avatar_url: pub.publicUrl }).eq('id', session.user.id)
+      if (upd.error) throw upd.error
+      await refreshProfile()
+    } catch (err) {
+      setUploadErr(err.message || 'Upload failed.')
+    }
+    setUploading(false)
+  }
 
   const bg = dark ? 'linear-gradient(180deg,#0d1528,#111827)' : 'linear-gradient(180deg,#f1f5f9,#ffffff)'
   const cardBg = dark ? 'linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.03))' : 'linear-gradient(145deg,#ffffff 0%,#f0f9ff 100%)'
@@ -28,21 +56,48 @@ export default function Profile() {
         <div style={{ fontSize: 15, fontWeight: 800, color: textPrimary }}>Profile</div>
       </div>
 
-      {/* Header card — read-only, no image upload (admin-managed) */}
+      {/* Header card — avatar is tap-to-change so the employee owns their photo */}
       <div style={{ borderRadius: 20, padding: 20, background: 'linear-gradient(135deg,#1e3a8a,#2563eb)', color: '#fff', textAlign: 'center', boxShadow: '0 8px 24px rgba(37,99,235,.25)' }}>
-        <div style={{
-          width: 78, height: 78, borderRadius: '50%',
-          background: 'linear-gradient(135deg,#60a5fa,#0ea5e9)',
-          color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontWeight: 900, fontSize: 26, margin: '0 auto',
-          boxShadow: '0 6px 18px rgba(0,0,0,.3)',
-          border: '3px solid rgba(255,255,255,.2)',
-        }}>
-          {initials(profile?.full_name || 'EM')}
-        </div>
+        <button
+          onClick={onPickPhoto}
+          disabled={uploading}
+          title="Change profile photo"
+          style={{
+            position: 'relative',
+            width: 78, height: 78, borderRadius: '50%',
+            background: 'linear-gradient(135deg,#60a5fa,#0ea5e9)',
+            color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 900, fontSize: 26,
+            boxShadow: '0 6px 18px rgba(0,0,0,.3)',
+            border: '3px solid rgba(255,255,255,.2)',
+            padding: 0, cursor: uploading ? 'wait' : 'pointer', overflow: 'hidden',
+          }}
+        >
+          {profile?.avatar_url
+            ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : initials(profile?.full_name || 'EM')}
+          {/* Camera badge */}
+          <span style={{
+            position: 'absolute', bottom: -4, right: -4,
+            width: 26, height: 26, borderRadius: '50%',
+            background: '#fff', color: '#2563eb',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 6px rgba(0,0,0,.25)', border: '2px solid #1e3a8a',
+          }}>
+            {uploading ? '⋯' : (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
+              </svg>
+            )}
+          </span>
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" onChange={onFileChosen} style={{ display: 'none' }} />
 
         <div style={{ fontSize: 18, fontWeight: 800, marginTop: 10 }}>{profile?.full_name || 'Employee'}</div>
         <div style={{ fontSize: 11, opacity: .8, marginTop: 2 }}>{profile?.position || 'Employee'} · #{profile?.employee_code || 'EMP-000'}</div>
+        {uploadErr && (
+          <div style={{ marginTop: 8, display: 'inline-block', fontSize: 11, color: '#fca5a5', background: 'rgba(239,68,68,.15)', padding: '6px 10px', borderRadius: 8 }}>{uploadErr}</div>
+        )}
       </div>
 
       {/* Stat row */}
