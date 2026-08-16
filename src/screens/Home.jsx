@@ -100,7 +100,7 @@ export default function Home() {
             {onDuty ? `ON DUTY · ${(site?.name || 'SITE').toUpperCase()}` : 'OFF DUTY'}
           </div>
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,.7)', fontWeight: 600 }}>
-            {new Date().toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
+            {new Date().toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'short', month: 'short', day: 'numeric' })}
           </div>
         </div>
 
@@ -192,7 +192,7 @@ export default function Home() {
       <div style={{ marginTop: 10, background: cardBg, border: cardBorder, borderRadius: 16, padding: '10px 12px', boxShadow: '0 4px 12px rgba(0,0,0,.15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontWeight: 800, fontSize: 13, color: textPrimary }}>Today's schedule</div>
-          <div style={{ fontSize: 10, color: textMuted, fontWeight: 600 }}>{new Date().toLocaleDateString('en-CA', { weekday: 'long' })}</div>
+          <div style={{ fontSize: 10, color: textMuted, fontWeight: 600 }}>{new Date().toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'long' })}</div>
         </div>
         <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -256,7 +256,7 @@ export default function Home() {
                         ? 'Completed on clock-out'
                         : pending
                           ? 'Pending — auto-completes when you clock out'
-                          : (t.due_date ? `Waiting · due ${new Date(t.due_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}` : 'Waiting — starts when you clock in')}
+                          : (t.due_date ? `Waiting · due ${new Date(t.due_date).toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'short', day: 'numeric' })}` : 'Waiting — starts when you clock in')}
                       {' · '}{(t.priority || 'medium').toUpperCase()}
                     </div>
                   </div>

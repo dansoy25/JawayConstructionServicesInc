@@ -90,7 +90,7 @@ export default function AdminExpenses() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 20 }}>
         <StatTile icon="💵" label="TOTAL" value={fmtUSD(totals.all)} sub={`${rows.length} receipts`} accent="#2563eb" />
-        <StatTile icon="📅" label="THIS MONTH" value={fmtUSD(totals.monthly)} sub={new Date().toLocaleDateString('en', { month: 'long' })} accent="#22c55e" />
+        <StatTile icon="📅" label="THIS MONTH" value={fmtUSD(totals.monthly)} sub={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'long' })} accent="#22c55e" />
         <StatTile icon="🏷" label="CATEGORIES" value={Object.keys(totals.byCat).length} sub="in use" accent="#a855f7" />
         <StatTile icon="🖼" label="WITH PHOTO" value={rows.filter((r) => r.receipt_url).length} sub={`of ${rows.length}`} accent="#f59e0b" />
       </div>

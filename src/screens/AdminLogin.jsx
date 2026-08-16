@@ -111,10 +111,10 @@ export default function AdminLogin() {
           <div style={{ marginTop: 24, display: 'inline-flex', flexDirection: 'column', gap: 4, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 16, padding: '16px 22px', backdropFilter: 'blur(20px)', boxShadow: '0 10px 40px rgba(0,0,0,.3)', alignSelf: 'flex-start', minWidth: 220 }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .6 }}>CURRENT TIME</div>
             <div style={{ fontSize: 30, fontWeight: 800, color: '#f1f5f9', letterSpacing: -.5, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
-              {now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true })}
+              {now.toLocaleTimeString('en-CA', { timeZone: 'America/Regina', hour: '2-digit', minute: '2-digit', hour12: true })}
             </div>
             <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
-              {now.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              {now.toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
             </div>
           </div>
           <div style={{ marginTop: 14, fontSize: 10, color: 'rgba(148,163,184,.9)' }}>Designed and Developed by TingSync</div>

@@ -19,7 +19,7 @@ function fmtUSD(n) {
   return `$${v.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 function fmtDate(d) {
-  return new Date(d).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'short', day: 'numeric', year: 'numeric' })
 }
 function today() {
   return new Date().toISOString().slice(0, 10)
@@ -124,7 +124,7 @@ export default function AdminPayroll() {
                 <td style={{ ...td, fontFamily: 'monospace', color: '#b91c1c' }}>-{fmtUSD(r.deductions)}</td>
                 <td style={{ ...td, fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(r.net)}</td>
                 <td style={td}>{r.status === 'draft' ? <span style={chip('#F1F5F9', '#334155')}>● Draft</span> : <span style={chip('#DCFCE7', '#15803d')}>● Completed</span>}</td>
-                <td style={{ ...td, fontSize: 11, color: '#94a3b8' }}>{new Date(r.created_at).toLocaleDateString('en-US')}</td>
+                <td style={{ ...td, fontSize: 11, color: '#94a3b8' }}>{new Date(r.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Regina' })}</td>
                 <td style={td}>
                   <button
                     onClick={() => deleteRun(r)}

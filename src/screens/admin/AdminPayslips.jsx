@@ -5,7 +5,7 @@ import { card, table, th, td, btnPrimary, btnGhost, StatTile, PageHeader } from 
 import { exportCsv, todayStamp } from '../../lib/exports'
 
 function fmtUSD(n) { return `$${(Number(n) || 0).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }
-function fmtDate(d) { return new Date(d).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }) }
+function fmtDate(d) { return new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'short', day: 'numeric', year: 'numeric' }) }
 
 const PAGE_SIZE = 10
 
@@ -177,7 +177,7 @@ export default function AdminPayslips() {
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>
                     {r.profile?.full_name || 'Employee'} <span style={{ color: '#94a3b8', fontFamily: 'monospace', marginLeft: 6 }}>{r.profile?.employee_code}</span>
                   </div>
-                  <div style={{ fontSize: 11, color: '#64748b' }}>Requested {new Date(r.created_at).toLocaleDateString('en-CA')} · Period {r.period_start} → {r.period_end}</div>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Requested {new Date(r.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Regina' })} · Period {r.period_start} → {r.period_end}</div>
                 </div>
                 <button onClick={() => sendPayslip(r.profile_id)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#22c55e', color: '#fff', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>📨 Send latest</button>
                 <button onClick={() => denyRequest(r.id)} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #FCA5A5', background: '#fff', color: '#b91c1c', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>✗ Deny</button>
@@ -242,7 +242,7 @@ export default function AdminPayslips() {
                       if (lastSent) {
                         return (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ color: '#15803d', fontSize: 10, fontWeight: 700 }}>✓ Sent {new Date(lastSent.sent_at).toLocaleDateString('en-CA')}</span>
+                            <span style={{ color: '#15803d', fontSize: 10, fontWeight: 700 }}>✓ Sent {new Date(lastSent.sent_at).toLocaleDateString('en-CA', { timeZone: 'America/Regina' })}</span>
                             <button onClick={() => resyncPayslip(lastSent)} title="Recalc deductions from current profile" style={{ background: 'none', border: '1px solid #cbd5e1', color: '#64748b', fontSize: 9, fontWeight: 700, borderRadius: 4, padding: '2px 6px', cursor: 'pointer' }}>↻ Resync</button>
                           </div>
                         )

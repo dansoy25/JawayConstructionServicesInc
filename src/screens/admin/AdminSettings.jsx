@@ -255,7 +255,7 @@ function PrivacyPanel({ org }) {
       <div style={{ display: 'grid', gap: 10 }}>
         <PrivacyRow label="Organization code" value={org?.code || '—'} mono />
         <PrivacyRow label="Organization name" value={org?.name || '—'} />
-        <PrivacyRow label="Created" value={org?.created_at ? new Date(org.created_at).toLocaleDateString('en-CA') : '—'} />
+        <PrivacyRow label="Created" value={org?.created_at ? new Date(org.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Regina' }) : '—'} />
         <PrivacyRow label="Data isolation" value="Row-Level Security (RLS) enforced" />
         <PrivacyRow label="Password storage" value="One-way bcrypt hash via Supabase Auth" />
         <PrivacyRow label="Employee data export" value="Available via Reports → Export CSV" />

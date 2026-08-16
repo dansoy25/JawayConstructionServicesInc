@@ -1,12 +1,19 @@
-// Timezone helpers (Asia/Manila to match siteforce)
-export const TZ = 'Asia/Manila'
-export const manilaToday = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ })
+// Timezone helpers — the whole system runs in Saskatchewan time (America/Regina,
+// UTC-6 year-round, no DST). Every date/time render should either use one of
+// these helpers OR pass { timeZone: TZ } explicitly to toLocale*.
+export const TZ = 'America/Regina'
+export const LOCALE = 'en-CA'
+
+// Local "today" YYYY-MM-DD in Saskatchewan — used for attendance work_date etc.
+export const saskToday = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ })
+// Backwards-compat alias so existing imports don't break during the rename.
+export const manilaToday = saskToday
 
 export const fmtDate = (d, opts = { month: 'short', day: 'numeric', weekday: 'short' }) =>
-  new Date(d).toLocaleDateString('en-US', { timeZone: TZ, ...opts })
+  new Date(d).toLocaleDateString(LOCALE, { timeZone: TZ, ...opts })
 
 export const fmtTime = (d) =>
-  new Date(d).toLocaleTimeString('en-US', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: true })
+  new Date(d).toLocaleTimeString(LOCALE, { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: true })
 
 export const hoursBetween = (a, b) => {
   if (!a || !b) return 0
@@ -40,4 +47,4 @@ export const initials = (name = '') =>
   name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() || '').join('') || '?'
 
 export const currency = (n) =>
-  new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 2 }).format(Number(n) || 0)
+  new Intl.NumberFormat(LOCALE, { style: 'currency', currency: 'CAD', maximumFractionDigits: 2 }).format(Number(n) || 0)

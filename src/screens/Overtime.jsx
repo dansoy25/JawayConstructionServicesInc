@@ -79,7 +79,7 @@ export default function Overtime() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={textPrimary} strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
         </Link>
         <div style={{ fontSize: 15, fontWeight: 800, color: textPrimary }}>Overtime</div>
-        <div style={{ fontSize: 11, color: textMuted, fontWeight: 700 }}>{new Date().toLocaleDateString('en', { month: 'short', year: 'numeric' })} ▾</div>
+        <div style={{ fontSize: 11, color: textMuted, fontWeight: 700 }}>{new Date().toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'short', year: 'numeric' })} ▾</div>
       </div>
 
       {/* Hero card */}

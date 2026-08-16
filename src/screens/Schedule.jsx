@@ -20,7 +20,7 @@ export default function Schedule() {
   // 14-day picker
   const days = Array.from({ length: 14 }).map((_, i) => {
     const d = new Date(); d.setDate(d.getDate() + i)
-    return { iso: d.toISOString().slice(0, 10), d, day: d.toLocaleDateString('en', { weekday: 'short' }), num: d.getDate() }
+    return { iso: d.toISOString().slice(0, 10), d, day: d.toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'short' }), num: d.getDate() }
   })
 
   // Compute working-day vs day-off from the profile — NOT hardcoded Sat/Sun.
@@ -63,7 +63,7 @@ export default function Schedule() {
   return (
     <div style={{ background: bg, minHeight: '100%', padding: '8px 20px 0', fontFamily: "'Inter',system-ui,sans-serif" }}>
       <div style={{ padding: '16px 4px' }}>
-        <div style={{ fontSize: 10, color: textMuted, fontWeight: 600, letterSpacing: .4 }}>{today.toLocaleDateString('en', { month: 'long', year: 'numeric' }).toUpperCase()}</div>
+        <div style={{ fontSize: 10, color: textMuted, fontWeight: 600, letterSpacing: .4 }}>{today.toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'long', year: 'numeric' }).toUpperCase()}</div>
         <div style={{ fontSize: 20, fontWeight: 800, color: textPrimary }}>My Schedule</div>
       </div>
 
@@ -116,12 +116,12 @@ export default function Schedule() {
 
       {/* Selected date header */}
       <div style={{ marginTop: 14, fontSize: 12, color: textMuted, fontWeight: 600 }}>
-        {selectedDate.toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' })}
+        {selectedDate.toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'long', month: 'long', day: 'numeric' })}
       </div>
 
       {selectedIsDayOff ? (
         <div style={{ marginTop: 12, padding: 20, borderRadius: 18, background: 'linear-gradient(135deg,#1e40af,#2563eb)', color: '#fff', textAlign: 'center' }}>
-          <div style={{ fontSize: 12, opacity: .85, fontWeight: 600 }}>{selectedDate.toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+          <div style={{ fontSize: 12, opacity: .85, fontWeight: 600 }}>{selectedDate.toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'long', month: 'long', day: 'numeric' })}</div>
           <div style={{ fontSize: 32, fontWeight: 900, marginTop: 6 }}>Day off</div>
         </div>
       ) : (
@@ -319,9 +319,9 @@ function LeaveSection({ dark, cardBg, cardBorder, textPrimary, textMuted }) {
               {statusChip(r.status)}
             </div>
             <div style={{ fontSize: 10, color: textMuted, marginTop: 3 }}>
-              {new Date(r.date_from).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+              {new Date(r.date_from).toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'short', day: 'numeric' })}
               {' — '}
-              {new Date(r.date_to).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+              {new Date(r.date_to).toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'short', day: 'numeric' })}
               {` · ${r.days} day${r.days > 1 ? 's' : ''}`}
             </div>
             {r.reason && <div style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>{r.reason}</div>}

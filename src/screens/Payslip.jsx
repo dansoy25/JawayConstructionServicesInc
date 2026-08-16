@@ -19,7 +19,7 @@ function fmtCAD(n) {
 }
 function fmtDate(d) {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 // Pull a value from deductions jsonb tolerating any alias.

@@ -42,7 +42,7 @@ export default function Attendance() {
     <div style={{ background: bg, minHeight: '100%', padding: '8px 20px 0', fontFamily: "'Inter',system-ui,sans-serif" }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 4px' }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: textPrimary }}>Attendance</div>
-        <div style={{ fontSize: 11, color: textMuted, fontWeight: 700 }}>{now.toLocaleDateString('en', { month: 'short', year: 'numeric' })} ▾</div>
+        <div style={{ fontSize: 11, color: textMuted, fontWeight: 700 }}>{now.toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'short', year: 'numeric' })} ▾</div>
       </div>
 
       {/* Stat cards */}

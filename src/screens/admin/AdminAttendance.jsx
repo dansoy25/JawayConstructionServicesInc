@@ -284,7 +284,7 @@ export default function AdminAttendance() {
                       </div>
                     </div>
                   </td>
-                  <td style={{ ...td, fontFamily: 'monospace' }}>{new Date(r.work_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
+                  <td style={{ ...td, fontFamily: 'monospace' }}>{new Date(r.work_date).toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'short', day: 'numeric' })}</td>
                   <td style={{ ...td, fontFamily: 'monospace' }}>{r.clock_in ? fmtTime(r.clock_in) : '—'}</td>
                   <td style={{ ...td, fontFamily: 'monospace' }}>{r.clock_out ? fmtTime(r.clock_out) : '—'}</td>
                   <td style={{ ...td, fontFamily: 'monospace' }}>{r.hours ? `${Number(r.hours).toFixed(1)}h` : '—'}</td>
@@ -443,7 +443,7 @@ function DeleteAttendanceDialog({ row, onClose, onDeleted }) {
           <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>Delete attendance</div>
         </div>
         <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.5, marginBottom: 12 }}>
-          Remove <b>{row.profile?.full_name || 'this'}</b>'s attendance for <b>{new Date(row.work_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}</b>?
+          Remove <b>{row.profile?.full_name || 'this'}</b>'s attendance for <b>{new Date(row.work_date).toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'short', day: 'numeric', year: 'numeric' })}</b>?
           This is permanent and cannot be undone.
         </div>
         {err && <div style={{ marginBottom: 10, padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}

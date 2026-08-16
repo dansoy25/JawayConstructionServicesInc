@@ -179,7 +179,7 @@ export default function AdminReports() {
             <div>
               <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{REPORTS.find((r) => r.key === selected)?.label} — preview</div>
               <div style={{ fontSize: 11, color: '#64748b' }}>
-                {new Date(rangeFrom).toLocaleDateString('en-CA')} → {new Date(rangeTo).toLocaleDateString('en-CA')}
+                {new Date(rangeFrom).toLocaleDateString('en-CA', { timeZone: 'America/Regina' })} → {new Date(rangeTo).toLocaleDateString('en-CA', { timeZone: 'America/Regina' })}
                 {department !== 'all' && ` · ${department}`}
               </div>
             </div>

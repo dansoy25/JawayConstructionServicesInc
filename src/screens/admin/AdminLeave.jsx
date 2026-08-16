@@ -243,7 +243,7 @@ function LeaveCalendar({ rows, types, monthOffset, setMonthOffset, calStart, onC
     <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>
-          Leave calendar — {anchor.toLocaleDateString('en', { month: 'long', year: 'numeric' })}
+          Leave calendar — {anchor.toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'long', year: 'numeric' })}
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <button onClick={() => setMonthOffset(monthOffset - 1)} style={{ ...btnGhost, padding: '6px 10px' }}>‹</button>
@@ -287,7 +287,7 @@ function LeaveCalendar({ rows, types, monthOffset, setMonthOffset, calStart, onC
             <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: '#fff', borderRadius: 16, padding: 20, boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>{new Date(openDay).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>{new Date(openDay).toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
                   <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{dLeaves.length} employee{dLeaves.length === 1 ? '' : 's'} on leave</div>
                 </div>
                 <button onClick={() => setOpenDay(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 20 }}>✕</button>

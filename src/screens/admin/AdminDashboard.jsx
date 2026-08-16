@@ -78,7 +78,7 @@ export default function AdminDashboard() {
     return Array.from({ length: trendDays }, (_, i) => {
       const d = daysAgo(trendDays - 1 - i)
       if (i === trendDays - 1) return 'Today'
-      return d.toLocaleDateString('en-CA', { weekday: 'short' })
+      return d.toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'short' })
     })
   }, [trendDays])
 
@@ -90,7 +90,7 @@ export default function AdminDashboard() {
         <div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#0f172a' }}>Good morning, {profile?.full_name?.split(' ')[0] || 'Admin'}</div>
           <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
-            {new Date().toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })} · showing metrics {scopeLabel}.
+            {new Date().toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'long', month: 'long', day: 'numeric' })} · showing metrics {scopeLabel}.
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -191,7 +191,7 @@ export default function AdminDashboard() {
                 <div style={{ flex: 1, fontSize: 13 }}>
                   <span style={{ fontWeight: 700 }}>{a.name}</span> <span style={{ color: '#64748b' }}>{a.action}</span>
                 </div>
-                <span style={{ fontSize: 10, color: '#94a3b8', minWidth: 90, textAlign: 'right' }}>{a.when ? new Date(a.when).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                <span style={{ fontSize: 10, color: '#94a3b8', minWidth: 90, textAlign: 'right' }}>{a.when ? new Date(a.when).toLocaleTimeString('en-CA', { timeZone: 'America/Regina', hour: '2-digit', minute: '2-digit' }) : ''}</span>
               </div>
             ))}
           </div>
@@ -267,7 +267,7 @@ function ExpenseBreakdown() {
   return (
     <div style={card}>
       <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>Payroll breakdown</div>
-      <div style={{ fontSize: 11, color: '#64748b', marginBottom: 14 }}>{new Date().toLocaleDateString('en-CA', { month: 'long', year: 'numeric' })}</div>
+      <div style={{ fontSize: 11, color: '#64748b', marginBottom: 14 }}>{new Date().toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'long', year: 'numeric' })}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
         <svg width="130" height="130" viewBox="0 0 42 42">
           <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#e2e8f0" strokeWidth="6"/>
