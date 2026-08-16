@@ -179,10 +179,10 @@ function JawayLogo() {
     return (
       <div style={{
         margin: '10px auto 0',
-        width: 96, height: 96,
+        width: 68, height: 68,
         borderRadius: '50%',
         background: 'radial-gradient(circle at 50% 45%, #fffbeb 0%, #fef3c7 65%, #fde68a 100%)',
-        boxShadow: '0 6px 18px rgba(0,0,0,.35), inset 0 0 0 1px rgba(220,38,38,.15)',
+        boxShadow: '0 6px 16px rgba(0,0,0,.35), inset 0 0 0 1px rgba(220,38,38,.15)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         overflow: 'hidden',
       }}>
