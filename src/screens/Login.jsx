@@ -122,14 +122,22 @@ export default function Login() {
             <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.6, background: 'linear-gradient(135deg,#fca5a5 0%,#dc2626 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: 'drop-shadow(0 0 20px rgba(220,38,38,.6))' }}>Services Inc.</span>
           </div>
 
-          {/* Jaway crest — aligned under the brand line */}
+          {/* Jaway crest inside a soft cream disc so the black+red silhouette pops */}
           <div style={{ position: 'relative', zIndex: 2, display: 'flex', justifyContent: 'center', marginTop: 10 }}>
-            <img
-              src={`${import.meta.env.BASE_URL}jaway-logo.png`}
-              alt="Jaway Construction Services"
-              style={{ width: 68, height: 'auto', filter: 'drop-shadow(0 4px 14px rgba(220,38,38,.5))' }}
-              onError={(e) => { e.currentTarget.style.display = 'none' }}
-            />
+            <div style={{
+              width: 92, height: 92, borderRadius: '50%',
+              background: 'radial-gradient(circle at 50% 45%, #fffbeb 0%, #fef3c7 65%, #fde68a 100%)',
+              boxShadow: '0 8px 22px rgba(220,38,38,.35), inset 0 0 0 1px rgba(220,38,38,.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden',
+            }}>
+              <img
+                src={`${import.meta.env.BASE_URL}jaway-logo.png`}
+                alt="Jaway Construction Services"
+                style={{ width: '82%', height: '82%', objectFit: 'contain', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,.25))' }}
+                onError={(e) => { e.currentTarget.parentElement.style.display = 'none' }}
+              />
+            </div>
           </div>
 
           <div style={{ position: 'relative', zIndex: 2, marginTop: 20 }}>

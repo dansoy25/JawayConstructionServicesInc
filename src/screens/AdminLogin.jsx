@@ -93,12 +93,20 @@ export default function AdminLogin() {
             <span style={{ fontSize: 32, fontWeight: 800, letterSpacing: -1.2, color: '#fff', marginRight: 7 }}>Jaway Construction</span>
             <span style={{ fontSize: 32, fontWeight: 800, letterSpacing: -1.2, background: 'linear-gradient(135deg,#fca5a5 0%,#dc2626 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: 'drop-shadow(0 0 20px rgba(220,38,38,.6))' }}>Services Incorporated</span>
           </div>
-          <img
-            src={`${import.meta.env.BASE_URL}jaway-logo.png`}
-            alt="Jaway Construction Services"
-            style={{ width: 120, height: 'auto', filter: 'drop-shadow(0 6px 22px rgba(220,38,38,.55))' }}
-            onError={(e) => { e.currentTarget.style.display = 'none' }}
-          />
+          <div style={{
+            width: 148, height: 148, borderRadius: '50%',
+            background: 'radial-gradient(circle at 50% 45%, #fffbeb 0%, #fef3c7 65%, #fde68a 100%)',
+            boxShadow: '0 10px 30px rgba(220,38,38,.4), inset 0 0 0 1px rgba(220,38,38,.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden',
+          }}>
+            <img
+              src={`${import.meta.env.BASE_URL}jaway-logo.png`}
+              alt="Jaway Construction Services"
+              style={{ width: '82%', height: '82%', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.25))' }}
+              onError={(e) => { e.currentTarget.parentElement.style.display = 'none' }}
+            />
+          </div>
         </div>
 
         <div style={{ position: 'relative', zIndex: 2, maxWidth: 520, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>

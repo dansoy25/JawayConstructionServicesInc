@@ -181,14 +181,16 @@ function JawayLogo() {
         margin: '10px auto 0',
         width: 96, height: 96,
         borderRadius: '50%',
-        background: 'radial-gradient(circle at 50% 45%, #fffbeb 0%, #fef3c7 65%, rgba(254,243,199,0) 100%)',
+        background: 'radial-gradient(circle at 50% 45%, #fffbeb 0%, #fef3c7 65%, #fde68a 100%)',
+        boxShadow: '0 6px 18px rgba(0,0,0,.35), inset 0 0 0 1px rgba(220,38,38,.15)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden',
       }}>
         <img
           src={src}
           alt="Jaway Construction Services"
           onError={() => setImgOk(false)}
-          style={{ width: '82%', height: '82%', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.35))' }}
+          style={{ width: '82%', height: '82%', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.25))' }}
         />
       </div>
     )
