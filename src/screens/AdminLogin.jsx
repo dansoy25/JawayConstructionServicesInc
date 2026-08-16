@@ -93,46 +93,28 @@ export default function AdminLogin() {
             <span style={{ fontSize: 32, fontWeight: 800, letterSpacing: -1.2, color: '#fff', marginRight: 7 }}>Jaway Construction</span>
             <span style={{ fontSize: 32, fontWeight: 800, letterSpacing: -1.2, background: 'linear-gradient(135deg,#fca5a5 0%,#dc2626 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: 'drop-shadow(0 0 20px rgba(220,38,38,.6))' }}>Services Incorporated</span>
           </div>
-          <div style={{
-            width: 148, height: 148, borderRadius: '50%',
-            background: 'radial-gradient(circle at 50% 45%, #fffbeb 0%, #fef3c7 65%, #fde68a 100%)',
-            boxShadow: '0 10px 30px rgba(220,38,38,.4), inset 0 0 0 1px rgba(220,38,38,.15)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            overflow: 'hidden',
-          }}>
-            <img
-              src={`${import.meta.env.BASE_URL}jaway-logo.png`}
-              alt="Jaway Construction Services"
-              style={{ width: '82%', height: '82%', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.25))' }}
-              onError={(e) => { e.currentTarget.parentElement.style.display = 'none' }}
-            />
-          </div>
+          {/* Logo moved to right panel (above ADMIN SIGN-IN) — see below. */}
         </div>
 
         <div style={{ position: 'relative', zIndex: 2, maxWidth: 520, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <div className="ts-wave" style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2.5, color: 'rgba(255,255,255,.5)', marginBottom: 14 }}>
-            {'EVERY MINUTE · ACCOUNTED'.split('').map((c, i) => (
+            {'WORKFORCE · COMMAND CENTER'.split('').map((c, i) => (
               <span key={i} style={{ animationDelay: `${(i * 0.03).toFixed(2)}s` }}>{c === ' ' ? ' ' : c}</span>
             ))}
           </div>
-          <div style={{ fontSize: 48, fontWeight: 800, lineHeight: 1.05, color: '#fff', letterSpacing: -1.3 }}>Your shift starts here.</div>
+          <div style={{ fontSize: 48, fontWeight: 800, lineHeight: 1.05, color: '#fff', letterSpacing: -1.3 }}>Run your operation.</div>
           <div style={{ marginTop: 14, fontSize: 15, color: 'rgba(148,163,184,.9)', lineHeight: 1.5, maxWidth: 460 }}>
-            Sign in with your credentials — we'll verify your location and log your clock-in securely from any workstation.
+            Sign in to manage employees, attendance, payroll, receipts, and every worksite from one dashboard.
           </div>
 
-          {/* Time widget */}
-          <div style={{ marginTop: 24, display: 'inline-flex', flexDirection: 'column', gap: 12, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 16, padding: '18px 22px', backdropFilter: 'blur(20px)', boxShadow: '0 10px 40px rgba(0,0,0,.3)', alignSelf: 'flex-start' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#dc2626,#f97316)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: 12 }}>JC</div>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .6 }}>CURRENT TIME</div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: '#f1f5f9', letterSpacing: -.5, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
-                  {now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                </div>
-                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
-                  {now.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-                </div>
-              </div>
+          {/* Time widget — JC pill removed; time-only for a cleaner control-center feel */}
+          <div style={{ marginTop: 24, display: 'inline-flex', flexDirection: 'column', gap: 4, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 16, padding: '16px 22px', backdropFilter: 'blur(20px)', boxShadow: '0 10px 40px rgba(0,0,0,.3)', alignSelf: 'flex-start', minWidth: 220 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: .6 }}>CURRENT TIME</div>
+            <div style={{ fontSize: 30, fontWeight: 800, color: '#f1f5f9', letterSpacing: -.5, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+              {now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true })}
+            </div>
+            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
+              {now.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
             </div>
           </div>
           <div style={{ marginTop: 14, fontSize: 10, color: 'rgba(148,163,184,.9)' }}>Designed and Developed by TingSync</div>
@@ -179,6 +161,21 @@ export default function AdminLogin() {
         padding: '48px 64px', position: 'relative', overflowY: 'auto', minWidth: 0,
       }}>
         <div style={{ maxWidth: 460, width: '100%', margin: '0 auto' }}>
+          {/* Small cream disc with the Jaway crest — sits above the ADMIN SIGN-IN label */}
+          <div style={{
+            width: 68, height: 68, borderRadius: '50%',
+            background: 'radial-gradient(circle at 50% 45%, #fffbeb 0%, #fef3c7 65%, #fde68a 100%)',
+            boxShadow: '0 8px 20px rgba(220,38,38,.35), inset 0 0 0 1px rgba(220,38,38,.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden', marginBottom: 14,
+          }}>
+            <img
+              src={`${import.meta.env.BASE_URL}jaway-logo.png`}
+              alt="Jaway Construction Services"
+              style={{ width: '82%', height: '82%', objectFit: 'contain', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,.25))' }}
+              onError={(e) => { e.currentTarget.parentElement.style.display = 'none' }}
+            />
+          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, color: '#f87171' }}>ADMIN SIGN-IN</div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.2)', padding: '5px 10px', borderRadius: 999, fontSize: 10, fontWeight: 800, color: '#10b981' }}>
@@ -187,7 +184,7 @@ export default function AdminLogin() {
             </div>
           </div>
           <div style={{ fontSize: 32, fontWeight: 800, color: '#f1f5f9', letterSpacing: -.8 }}>Welcome back</div>
-          <div style={{ fontSize: 14, color: '#64748b', marginTop: 6 }}>Enter your credentials to start your shift.</div>
+          <div style={{ fontSize: 14, color: '#64748b', marginTop: 6 }}>Enter your admin credentials to access the control panel.</div>
 
           {banner && (
             <div style={{

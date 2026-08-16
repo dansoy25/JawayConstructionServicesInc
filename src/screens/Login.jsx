@@ -125,9 +125,9 @@ export default function Login() {
           {/* Jaway crest inside a soft cream disc so the black+red silhouette pops */}
           <div style={{ position: 'relative', zIndex: 2, display: 'flex', justifyContent: 'center', marginTop: 10 }}>
             <div style={{
-              width: 92, height: 92, borderRadius: '50%',
+              width: 64, height: 64, borderRadius: '50%',
               background: 'radial-gradient(circle at 50% 45%, #fffbeb 0%, #fef3c7 65%, #fde68a 100%)',
-              boxShadow: '0 8px 22px rgba(220,38,38,.35), inset 0 0 0 1px rgba(220,38,38,.15)',
+              boxShadow: '0 6px 16px rgba(220,38,38,.32), inset 0 0 0 1px rgba(220,38,38,.15)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               overflow: 'hidden',
             }}>
