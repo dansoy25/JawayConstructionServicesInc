@@ -160,31 +160,33 @@ export default function AdminLogin() {
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
         padding: '48px 64px', position: 'relative', overflowY: 'auto', minWidth: 0,
       }}>
+        {/* Floating LIVE badge in the top-right so we can center the sign-in header cleanly. */}
+        <div style={{ position: 'absolute', top: 24, right: 24, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.2)', padding: '5px 10px', borderRadius: 999, fontSize: 10, fontWeight: 800, color: '#10b981', zIndex: 4 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px rgba(16,185,129,.8)' }} />
+          LIVE
+        </div>
+
         <div style={{ maxWidth: 460, width: '100%', margin: '0 auto' }}>
-          {/* Small cream disc with the Jaway crest — sits above the ADMIN SIGN-IN label */}
-          <div style={{
-            width: 68, height: 68, borderRadius: '50%',
-            background: 'radial-gradient(circle at 50% 45%, #fffbeb 0%, #fef3c7 65%, #fde68a 100%)',
-            boxShadow: '0 8px 20px rgba(220,38,38,.35), inset 0 0 0 1px rgba(220,38,38,.15)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            overflow: 'hidden', marginBottom: 14,
-          }}>
-            <img
-              src={`${import.meta.env.BASE_URL}jaway-logo.png`}
-              alt="Jaway Construction Services"
-              style={{ width: '82%', height: '82%', objectFit: 'contain', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,.25))' }}
-              onError={(e) => { e.currentTarget.parentElement.style.display = 'none' }}
-            />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, color: '#f87171' }}>ADMIN SIGN-IN</div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.2)', padding: '5px 10px', borderRadius: 999, fontSize: 10, fontWeight: 800, color: '#10b981' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px rgba(16,185,129,.8)' }} />
-              LIVE
+          {/* Centered logo + heading stack */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 8 }}>
+            <div style={{
+              width: 68, height: 68, borderRadius: '50%',
+              background: 'radial-gradient(circle at 50% 45%, #fffbeb 0%, #fef3c7 65%, #fde68a 100%)',
+              boxShadow: '0 8px 20px rgba(220,38,38,.35), inset 0 0 0 1px rgba(220,38,38,.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden', marginBottom: 14,
+            }}>
+              <img
+                src={`${import.meta.env.BASE_URL}jaway-logo.png`}
+                alt="Jaway Construction Services"
+                style={{ width: '82%', height: '82%', objectFit: 'contain', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,.25))' }}
+                onError={(e) => { e.currentTarget.parentElement.style.display = 'none' }}
+              />
             </div>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.4, color: '#f87171' }}>ADMIN SIGN-IN</div>
+            <div style={{ fontSize: 32, fontWeight: 800, color: '#f1f5f9', letterSpacing: -.8, marginTop: 6 }}>Welcome back</div>
+            <div style={{ fontSize: 14, color: '#64748b', marginTop: 6 }}>Enter your admin credentials to access the control panel.</div>
           </div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: '#f1f5f9', letterSpacing: -.8 }}>Welcome back</div>
-          <div style={{ fontSize: 14, color: '#64748b', marginTop: 6 }}>Enter your admin credentials to access the control panel.</div>
 
           {banner && (
             <div style={{
