@@ -59,30 +59,35 @@ export default function Login() {
         .ts-pulse{animation:tsPulse 3s ease-in-out infinite}
         .ts-wave span{display:inline-block;animation:tsWave 6s ease-in-out infinite}
         .ts-login-input::placeholder{color:rgba(148,163,184,.55);font-weight:600;letter-spacing:1px}
-        /* Desktop preview: center in a max-width column with rounded frame */
+        /* Frame is a proper phone silhouette on desktop, edge-to-edge on mobile. */
+        .ts-login-frame {
+          flex: 1;
+          width: 100%;
+          display: flex; flex-direction: column;
+          overflow: hidden;
+          position: relative;
+        }
         @media (min-width: 769px) {
           .ts-login-root {
-            padding: 20px;
+            padding: 24px;
             align-items: center;
             justify-content: center;
           }
           .ts-login-frame {
+            flex: none;
             width: 390px;
+            height: 100%;
             max-height: 844px;
             border-radius: 40px;
-            box-shadow: 0 30px 80px -20px rgba(0,0,0,.7);
+            box-shadow: 0 30px 80px -20px rgba(0,0,0,.7), 0 0 60px rgba(220,38,38,.12);
+            border: 1px solid rgba(255,255,255,.06);
           }
         }
       `}</style>
 
-      <div
-        className="ts-login-frame"
-        style={{
-          flex: 1, width: '100%',
-          display: 'flex', flexDirection: 'column',
-          overflow: 'hidden', position: 'relative',
-        }}
-      >
+      {/* All layout for this frame lives in .ts-login-frame CSS above so the
+          desktop media query can override without inline-style specificity fights. */}
+      <div className="ts-login-frame">
         {/* TOP HERO SECTION */}
         <div style={{ position: 'relative', padding: '20px 24px 12px', flexShrink: 0 }}>
           {/* Clock decoration behind the text */}
@@ -134,6 +139,9 @@ export default function Login() {
               ))}
             </div>
             <div style={{ marginTop: 6, fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.15 }}>Your Shift Starts Here.</div>
+            <div style={{ marginTop: 6, fontSize: 12, fontWeight: 500, color: 'rgba(226,232,240,.72)', lineHeight: 1.4 }}>
+              Sign in with your credentials — we'll verify your location and log your clock-in securely.
+            </div>
             <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontSize: 8, fontWeight: 600, color: 'rgba(255,255,255,.7)' }}>Designed and Developed By TingSync</div>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.2)', padding: '3px 9px', borderRadius: 999, fontSize: 9, fontWeight: 800, color: '#10b981' }}>
