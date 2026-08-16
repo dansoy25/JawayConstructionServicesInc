@@ -224,11 +224,14 @@ function AddExpenseModal({ orgId, uploadedBy, onClose, onSaved }) {
         category, amount: Number(amount),
         description: description.trim() || null,
         receipt_url: receiptUrl,
-        uploaded_by: uploadedBy || null,
+        created_by: uploadedBy || null,
       })
       if (error) throw error
       onSaved()
-    } catch (e) { setErr(e.message || 'Save failed.') }
+    } catch (e) {
+      // Surface the raw error so schema-cache and RLS issues are obvious.
+      setErr(`Save failed: ${e.message || e}`)
+    }
     setBusy(false)
   }
 

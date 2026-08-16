@@ -150,10 +150,27 @@ function TaskCard({ t, priorityChip, onChanged }) {
     await supabase.from('tasks').update({ status: nextStatus }).eq('id', t.id)
     onChanged()
   }
+  const remove = async (e) => {
+    e.stopPropagation()
+    if (!confirm(`Delete "${t.title}"? This cannot be undone.`)) return
+    await supabase.from('tasks').delete().eq('id', t.id)
+    onChanged()
+  }
+  const isDone = t.status === 'done'
   return (
     <div style={{ background: '#fff', borderRadius: 10, padding: 12, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
-      <div style={{ marginBottom: 8 }}>{priorityChip(t.priority)}</div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', textDecoration: t.status === 'done' ? 'line-through' : 'none' }}>{t.title}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+        {priorityChip(t.priority)}
+        {/* Delete is only offered once the task is done — mirrors the employee-side rule. */}
+        {isDone && (
+          <button
+            onClick={remove}
+            title="Delete completed task"
+            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 14, padding: 0 }}
+          >🗑</button>
+        )}
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', textDecoration: isDone ? 'line-through' : 'none' }}>{t.title}</div>
       {t.description && <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, lineHeight: 1.4 }}>{t.description}</div>}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

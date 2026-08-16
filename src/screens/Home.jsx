@@ -28,9 +28,13 @@ export default function Home() {
   useEffect(() => { refresh() }, [profile?.id])
 
   const openTasks = tasks.filter((t) => t.status !== 'done')
-  const advanceTask = async (t) => {
-    const next = t.status === 'todo' ? 'in_progress' : t.status === 'in_progress' ? 'done' : 'todo'
-    await supabase.from('tasks').update({ status: next }).eq('id', t.id)
+  const startTask = async (t) => {
+    await supabase.from('tasks').update({ status: 'in_progress' }).eq('id', t.id)
+    refresh()
+  }
+  const removeTask = async (t) => {
+    if (!confirm('Remove this completed task from your list?')) return
+    await supabase.from('tasks').delete().eq('id', t.id)
     refresh()
   }
 
@@ -144,9 +148,14 @@ export default function Home() {
             <div style={{ width: 30, height: 30, borderRadius: 9, background: dark ? 'rgba(255,255,255,.15)' : 'rgba(255,255,255,.44)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#727376" strokeWidth="2" strokeLinecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
             </div>
-            <div style={{ fontSize: 9, fontWeight: 800, color: '#BD2C2C', padding: '3px 7px', borderRadius: 99, boxShadow: '0 4px 12px rgba(0,0,0,.2)' }}>2 due</div>
+            {(() => {
+              const dueSoon = tasks.filter((t) => t.status !== 'done' && t.due_date && new Date(t.due_date) <= new Date(Date.now() + 3 * 86400000)).length
+              return dueSoon > 0
+                ? <div style={{ fontSize: 9, fontWeight: 800, color: '#BD2C2C', padding: '3px 7px', borderRadius: 99, boxShadow: '0 4px 12px rgba(0,0,0,.2)' }}>{dueSoon} due</div>
+                : <div style={{ fontSize: 9, fontWeight: 800, color: '#94a3b8', padding: '3px 7px', borderRadius: 99 }}>—</div>
+            })()}
           </div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: dark ? '#e2e8f0' : '#022557', marginTop: 8, letterSpacing: -.5 }}>3</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: dark ? '#e2e8f0' : '#022557', marginTop: 8, letterSpacing: -.5 }}>{openTasks.length}</div>
           <div style={{ fontSize: 10, color: dark ? '#94a3b8' : '#3A3B3C', fontWeight: 600 }}>Tasks to do</div>
         </Link>
         <Link to="/schedule" style={{ textDecoration: 'none', borderRadius: 16, padding: '10px 12px', border: '1px solid rgba(59,130,246,.2)', background: dark ? 'linear-gradient(160deg,#899DA151,#334155,#899DA11A)' : 'linear-gradient(160deg,#FFE6E6BC,#FFFAFA,#8B8B8B1A)', boxShadow: '0 4px 12px rgba(0,0,0,.15)' }}>
@@ -237,17 +246,22 @@ export default function Home() {
             {tasks.slice(0, 5).map((t) => {
               const pri = { urgent: '#dc2626', high: '#dc2626', medium: '#f59e0b', low: '#2563eb' }[t.priority || 'medium'] || '#94a3b8'
               const done = t.status === 'done'
-              const nextLabel = t.status === 'todo' ? '▶ Start' : t.status === 'in_progress' ? '✓ Done' : '↻ Reopen'
+              const inProgress = t.status === 'in_progress'
               return (
                 <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: dark ? 'rgba(255,255,255,.03)' : '#f8fafc', borderRadius: 10 }}>
-                  <div style={{ width: 4, height: 30, borderRadius: 2, background: pri }} />
+                  <div style={{ width: 4, height: 30, borderRadius: 2, background: done ? '#22c55e' : pri }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: textPrimary, textDecoration: done ? 'line-through' : 'none' }}>{t.title}</div>
                     <div style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>
-                      {t.due_date ? `Due ${new Date(t.due_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}` : 'No due date'} · {(t.priority || 'medium').toUpperCase()}
+                      {done ? 'Completed' : inProgress ? 'In progress · auto-completes on clock-out' : (t.due_date ? `Due ${new Date(t.due_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}` : 'Not started')}
+                      {' · '}{(t.priority || 'medium').toUpperCase()}
                     </div>
                   </div>
-                  <button onClick={() => advanceTask(t)} style={{ background: 'transparent', border: `1px solid ${pri}`, color: pri, fontSize: 10, fontWeight: 800, borderRadius: 6, padding: '4px 8px', cursor: 'pointer' }}>{nextLabel}</button>
+                  {done
+                    ? <button onClick={() => removeTask(t)} title="Delete completed task" style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 14, cursor: 'pointer' }}>🗑</button>
+                    : inProgress
+                      ? <span style={{ fontSize: 10, fontWeight: 800, color: '#a16207', background: '#FEF3C7', padding: '4px 8px', borderRadius: 999 }}>⏱ Working</span>
+                      : <button onClick={() => startTask(t)} style={{ background: pri, border: 'none', color: '#fff', fontSize: 10, fontWeight: 800, borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}>▶ Click to start</button>}
                 </div>
               )
             })}

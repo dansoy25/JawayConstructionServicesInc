@@ -232,17 +232,27 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone, rates = DEFAU
     })
   }, [orgId, periodStart, periodEnd])
 
-  // Hourly rate × actual hours worked within the period.
-  // If no attendance data is recorded, falls back to scheduled hours from
-  // the employee's shift × business days in the period (10 for semi-monthly).
+  // Hours worked = derived from actual clock in / clock out on each attendance
+  // row. If the row is missing 'hours' (older data or open shift) we compute
+  // it on the fly from clock_in→clock_out. Days with no clock-in count as 0.
   const rows = useMemo(() => {
     return employees.filter((e) => selected.has(e.id)).map((e) => {
-      const empAtt = attendance.filter((a) => a.profile_id === e.id && a.hours)
-      // OT only counts if the admin approved it on the attendance row.
+      const empAtt = attendance.filter((a) => a.profile_id === e.id)
+      let totalHoursLogged = 0
+      let daysWorked = 0
+      let daysAbsent = 0
+      for (const a of empAtt) {
+        if (!a.clock_in) { daysAbsent++; continue }
+        let h = Number(a.hours || 0)
+        if (!h && a.clock_out) {
+          h = Math.max(0, (new Date(a.clock_out) - new Date(a.clock_in)) / 3600000)
+        }
+        totalHoursLogged += h
+        if (h > 0) daysWorked++
+      }
       const otApprovedHours = empAtt
         .filter((a) => a.ot_approved && Number(a.ot_hours || 0) > 0)
         .reduce((s, a) => s + Number(a.ot_hours || 0), 0)
-      const totalHoursLogged = empAtt.reduce((s, a) => s + Number(a.hours || 0), 0)
       const regularHours = Math.max(0, totalHoursLogged - otApprovedHours)
       const otHours = otApprovedHours
       const rate = Number(e.daily_rate || 0)
@@ -258,7 +268,7 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone, rates = DEFAU
       const prov = pickAmt(e.provincial_tax_amount, rates.provincial_tax)
       const deductions = cpp + ei + fed + prov
       const net = gross - deductions
-      return { emp: e, rate, regularHours, otHours, basic, ot, gross, cpp, ei, fed, prov, deductions, net }
+      return { emp: e, rate, regularHours, otHours, basic, ot, gross, cpp, ei, fed, prov, deductions, net, daysWorked, daysAbsent, totalHoursLogged }
     })
   }, [employees, attendance, selected, rates])
 
@@ -345,17 +355,36 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone, rates = DEFAU
                 <div style={{ maxHeight: 300, overflowY: 'auto' }}>
                   {employees.length === 0 ? (
                     <div style={{ padding: 30, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>No employees yet.</div>
-                  ) : employees.map((e) => (
-                    <label key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', background: selected.has(e.id) ? '#eff6ff' : '#fff' }}>
-                      <input type="checkbox" checked={selected.has(e.id)} onChange={() => toggle(e.id)} style={{ width: 16, height: 16 }} />
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#dbeafe', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 10, flexShrink: 0 }}>{initials(e.full_name)}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{e.full_name}</div>
-                        <div style={{ fontSize: 10, color: '#94a3b8' }}>{e.position || 'Employee'} · {e.employee_code}</div>
-                      </div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{Number(e.daily_rate) > 0 ? `${fmtUSD(e.daily_rate)}/hr` : <span style={{ color: '#94a3b8' }}>no rate</span>}</div>
-                    </label>
-                  ))}
+                  ) : employees.map((e) => {
+                    const empAtt = attendance.filter((a) => a.profile_id === e.id)
+                    let hrs = 0, days = 0, absent = 0, otAppr = 0
+                    for (const a of empAtt) {
+                      if (!a.clock_in) { absent++; continue }
+                      let h = Number(a.hours || 0)
+                      if (!h && a.clock_out) h = Math.max(0, (new Date(a.clock_out) - new Date(a.clock_in)) / 3600000)
+                      hrs += h; if (h > 0) days++
+                    }
+                    for (const a of empAtt) if (a.ot_approved) otAppr += Number(a.ot_hours || 0)
+                    return (
+                      <label key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', background: selected.has(e.id) ? '#eff6ff' : '#fff' }}>
+                        <input type="checkbox" checked={selected.has(e.id)} onChange={() => toggle(e.id)} style={{ width: 16, height: 16 }} />
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#dbeafe', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 10, flexShrink: 0 }}>{initials(e.full_name)}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{e.full_name}</div>
+                          <div style={{ fontSize: 10, color: '#94a3b8' }}>{e.position || 'Employee'} · {e.employee_code}</div>
+                          <div style={{ fontSize: 10, marginTop: 2, fontFamily: 'monospace' }}>
+                            <span style={{ color: hrs > 0 ? '#15803d' : '#94a3b8' }}>⏱ {hrs.toFixed(1)}h</span>
+                            <span style={{ color: '#64748b' }}> · {days}d worked</span>
+                            {absent > 0 && <span style={{ color: '#b91c1c' }}> · {absent}d absent</span>}
+                            {otAppr > 0 && <span style={{ color: '#a16207' }}> · {otAppr.toFixed(1)}h OT</span>}
+                          </div>
+                        </div>
+                        <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#0f172a', textAlign: 'right' }}>
+                          {Number(e.daily_rate) > 0 ? <>{fmtUSD(e.daily_rate)}<div style={{ fontSize: 9, color: '#94a3b8' }}>/hr</div></> : <span style={{ color: '#94a3b8' }}>no rate</span>}
+                        </div>
+                      </label>
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -364,18 +393,28 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone, rates = DEFAU
           {step === 2 && (
             <div>
               <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>Review & adjust</div>
-              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>US deductions currently at 0% — set rates in Settings to withhold.</div>
+              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>
+                Basic pay = hourly rate × actual hours logged from clock in / clock out. OT (1.5×) only counts if admin-approved on attendance. Late or absent employees only earn what they logged.
+              </div>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 12 }}>
                   <thead>
-                    <tr>{['EMPLOYEE','BASIC','OT','CPP','EI','FED','PROV','NET PAY'].map((h) => (
+                    <tr>{['EMPLOYEE','HOURS','BASIC','OT','CPP','EI','FED','PROV','NET PAY'].map((h) => (
                       <th key={h} style={{ ...th, padding: '8px 10px', fontSize: 9 }}>{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody>
                     {rows.map((r) => (
                       <tr key={r.emp.id}>
-                        <td style={{ ...td, padding: '10px', fontWeight: 600 }}>{r.emp.full_name}</td>
+                        <td style={{ ...td, padding: '10px', fontWeight: 600 }}>
+                          {r.emp.full_name}
+                          <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 500 }}>
+                            {r.daysWorked}d worked{r.daysAbsent > 0 && ` · ${r.daysAbsent}d absent`}
+                          </div>
+                        </td>
+                        <td style={{ ...td, padding: '10px', fontFamily: 'monospace', color: r.regularHours > 0 ? '#0f172a' : '#b91c1c' }}>
+                          {r.regularHours.toFixed(1)}h{r.otHours > 0 && <span style={{ color: '#a16207', fontSize: 10 }}> +{r.otHours.toFixed(1)}OT</span>}
+                        </td>
                         <td style={{ ...td, padding: '10px', fontFamily: 'monospace' }}>{fmtUSD(r.basic)}</td>
                         <td style={{ ...td, padding: '10px', fontFamily: 'monospace' }}>{fmtUSD(r.ot)}</td>
                         <td style={{ ...td, padding: '10px', fontFamily: 'monospace', color: '#b91c1c' }}>{fmtUSD(r.cpp)}</td>
@@ -387,6 +426,9 @@ function RunPayrollWizard({ orgId, defaultPeriod, onClose, onDone, rates = DEFAU
                     ))}
                     <tr style={{ background: '#f8fafc' }}>
                       <td style={{ ...td, padding: '10px', fontWeight: 800 }}>Totals ({rows.length} employees)</td>
+                      <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>
+                        {rows.reduce((s, r) => s + r.regularHours, 0).toFixed(1)}h
+                      </td>
                       <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(totals.basic)}</td>
                       <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(totals.ot)}</td>
                       <td style={{ ...td, padding: '10px', fontFamily: 'monospace', fontWeight: 800 }}>{fmtUSD(totals.cpp)}</td>

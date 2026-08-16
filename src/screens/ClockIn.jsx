@@ -85,6 +85,12 @@ export default function ClockIn() {
         hours: Number(hours.toFixed(2)),
       }).eq('id', today.id)
       if (error) throw error
+      // Auto-complete any of the employee's open (in_progress) tasks on clock-out.
+      // 'todo' tasks aren't auto-closed — they need an explicit Start click first.
+      await supabase.from('tasks')
+        .update({ status: 'done' })
+        .eq('assignee_id', profile.id)
+        .eq('status', 'in_progress')
       setMsg('success')
       setTimeout(() => nav('/'), 900)
     } catch (e) { setMsg(e.message) }
