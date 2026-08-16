@@ -76,22 +76,6 @@ export default function Profile() {
           {profile?.avatar_url
             ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : initials(profile?.full_name || 'EM')}
-          {/* Camera badge — filled camera glyph, larger so it reads at 30px */}
-          <span style={{
-            position: 'absolute', bottom: -2, right: -2,
-            width: 30, height: 30, borderRadius: '50%',
-            background: 'linear-gradient(135deg,#dc2626,#f97316)', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 3px 8px rgba(0,0,0,.35)', border: '2px solid #fff',
-          }}>
-            {uploading ? (
-              <span style={{ fontSize: 12, fontWeight: 900 }}>⋯</span>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M9.4 4l-1.7 2H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3.7l-1.7-2H9.4zM12 9a5 5 0 110 10 5 5 0 010-10zm0 2.2a2.8 2.8 0 100 5.6 2.8 2.8 0 000-5.6z"/>
-              </svg>
-            )}
-          </span>
         </button>
         <input ref={fileRef} type="file" accept="image/*" onChange={onFileChosen} style={{ display: 'none' }} />
 
