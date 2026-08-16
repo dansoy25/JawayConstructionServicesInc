@@ -37,6 +37,7 @@ import AdminExpenses from './screens/admin/AdminExpenses'
 import AdminGps from './screens/admin/AdminGps'
 import AdminReports from './screens/admin/AdminReports'
 import AdminSettings from './screens/admin/AdminSettings'
+import AdminProfile from './screens/admin/AdminProfile'
 
 function Loading() {
   return (
@@ -100,6 +101,7 @@ export default function App() {
             <Route path="gps" element={<AdminGps />} />
             <Route path="reports" element={<AdminReports />} />
             <Route path="settings" element={<AdminSettings />} />
+            <Route path="profile" element={<AdminProfile />} />
           </Route>
 
           {/* Employee routes (with role gate on root) */}

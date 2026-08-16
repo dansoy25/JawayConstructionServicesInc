@@ -1,5 +1,7 @@
+import { useEffect, useRef, useState } from 'react'
 import { Outlet, NavLink, useLocation, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import { initials } from '../lib/util'
 
 const SECTIONS = [
@@ -64,12 +66,13 @@ export default function AdminShell() {
         display: 'flex', flexDirection: 'column',
         borderRight: '1px solid rgba(255,255,255,.04)',
       }}>
-        {/* Brand */}
-        <div style={{ padding: '20px 20px 24px', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: -.3 }}>
+        {/* Brand: one-line title + inline Jaway construction logo */}
+        <div style={{ padding: '18px 16px 20px', borderBottom: '1px solid rgba(255,255,255,.04)', textAlign: 'center' }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: -.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             Jaway Construction <span style={{ color: '#ef4444' }}>Services Inc.</span>
           </div>
-          <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, color: '#94a3b8', marginTop: 4 }}>BUSINESS OPERATIONS</div>
+          <JawayLogo />
+          <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: 2, color: '#94a3b8', marginTop: 6 }}>BUSINESS OPERATIONS</div>
         </div>
 
         {/* Nav */}
@@ -126,19 +129,24 @@ export default function AdminShell() {
             <span style={{ color: '#0f172a', fontWeight: 800 }}>{current.label}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button style={iconBtn}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
-            </button>
-            <button style={iconBtn}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            </button>
-            <button style={{ ...iconBtn, position: 'relative' }}>
+            <TopbarSearch />
+            <button style={{ ...iconBtn, position: 'relative' }} onClick={() => nav('/admin/leave')} title="Pending leave requests">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
               <span style={{ position: 'absolute', top: 6, right: 7, width: 6, height: 6, background: '#ef4444', borderRadius: '50%' }} />
             </button>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#fce7f3,#fbcfe8)', color: '#831843', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>
-              {initials(profile?.full_name || 'JJ')}
-            </div>
+            <button
+              onClick={() => nav('/admin/profile')}
+              title="Your admin profile"
+              style={{
+                width: 36, height: 36, borderRadius: '50%', border: 'none', cursor: 'pointer', padding: 0, overflow: 'hidden',
+                background: profile?.avatar_url ? '#f1f5f9' : 'linear-gradient(135deg,#fce7f3,#fbcfe8)',
+                color: '#831843', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12,
+              }}
+            >
+              {profile?.avatar_url
+                ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : initials(profile?.full_name || 'JJ')}
+            </button>
           </div>
         </div>
 
@@ -154,4 +162,120 @@ export default function AdminShell() {
 const iconBtn = {
   width: 34, height: 34, borderRadius: '50%', background: '#f1f5f9',
   border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+}
+
+// Stylised inline SVG that mirrors the Jaway Construction Services logo:
+// black double-roof silhouette with red hammer accents, then a red diamond
+// with a white "J" underneath. Keeps the sidebar self-contained (no image
+// upload needed for the deploy to look complete).
+function JawayLogo() {
+  return (
+    <svg viewBox="0 0 100 88" width="88" height="76" style={{ margin: '10px auto 0', display: 'block' }} aria-hidden="true">
+      {/* left hammer / flag */}
+      <path d="M14 10 L20 4 L26 8 L22 18 Z" fill="#ef4444" />
+      {/* right hammer / flag */}
+      <path d="M86 10 L80 4 L74 8 L78 18 Z" fill="#ef4444" />
+      {/* peak */}
+      <path d="M50 6 L38 24 L62 24 Z" fill="#0f172a" />
+      {/* roof / house silhouette */}
+      <path d="M4 40 L50 12 L96 40 L96 62 L4 62 Z" fill="#0f172a" />
+      {/* windows to hint at houses */}
+      <rect x="18" y="46" width="8" height="8" fill="#fff" opacity=".9" />
+      <rect x="74" y="46" width="8" height="8" fill="#fff" opacity=".9" />
+      {/* door */}
+      <rect x="46" y="46" width="8" height="16" fill="#fff" opacity=".9" />
+      {/* red diamond with J */}
+      <path d="M50 68 L60 78 L50 88 L40 78 Z" fill="#ef4444" />
+      <text x="50" y="82" textAnchor="middle" fontSize="9" fontWeight="900" fill="#fff" fontFamily="Inter, sans-serif">J</text>
+    </svg>
+  )
+}
+
+// Global search — opens on click, queries employees / sites / tasks / expenses,
+// jumps to the matching page when a result is picked.
+function TopbarSearch() {
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState({ employees: [], sites: [], tasks: [], expenses: [] })
+  const [busy, setBusy] = useState(false)
+  const { profile } = useAuth()
+  const nav = useNavigate()
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [open])
+
+  useEffect(() => {
+    if (!open || !profile?.org_id) return
+    const term = q.trim()
+    if (!term) { setResults({ employees: [], sites: [], tasks: [], expenses: [] }); return }
+    setBusy(true)
+    const p = `%${term}%`
+    Promise.all([
+      supabase.from('profiles').select('id, full_name, employee_code, position').eq('org_id', profile.org_id).or(`full_name.ilike.${p},employee_code.ilike.${p},position.ilike.${p}`).limit(5),
+      supabase.from('sites').select('id, name').eq('org_id', profile.org_id).ilike('name', p).limit(5),
+      supabase.from('tasks').select('id, title, status').eq('org_id', profile.org_id).ilike('title', p).limit(5),
+      supabase.from('expenses').select('id, description, amount, spent_on, category').eq('org_id', profile.org_id).or(`description.ilike.${p},category.ilike.${p}`).limit(5),
+    ]).then(([e, s, t, x]) => {
+      setResults({
+        employees: e.data || [], sites: s.data || [],
+        tasks: t.data || [], expenses: x.data || [],
+      })
+      setBusy(false)
+    })
+  }, [q, open, profile?.org_id])
+
+  const go = (path) => { nav(path); setOpen(false); setQ('') }
+  const total = results.employees.length + results.sites.length + results.tasks.length + results.expenses.length
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button onClick={() => setOpen((v) => !v)} title="Search" style={iconBtn}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: 42, right: 0, width: 380, maxHeight: 480, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, boxShadow: '0 12px 32px rgba(0,0,0,.18)', overflow: 'hidden', zIndex: 200 }}>
+          <div style={{ padding: 10, borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search employees, sites, tasks, receipts…"
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 13, color: '#0f172a' }} />
+            {busy && <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700 }}>…</span>}
+          </div>
+          <div style={{ overflowY: 'auto', maxHeight: 420 }}>
+            {!q.trim() ? (
+              <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>Type to search across the whole workspace.</div>
+            ) : total === 0 && !busy ? (
+              <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>No matches.</div>
+            ) : (
+              <>
+                <ResultGroup label="Employees" items={results.employees.map((r) => ({ id: r.id, label: r.full_name, sub: `${r.employee_code || ''} · ${r.position || ''}` }))} onGo={() => go('/admin/employees')} />
+                <ResultGroup label="Sites" items={results.sites.map((r) => ({ id: r.id, label: r.name, sub: '' }))} onGo={() => go('/admin/gps')} />
+                <ResultGroup label="Tasks" items={results.tasks.map((r) => ({ id: r.id, label: r.title, sub: r.status }))} onGo={() => go('/admin/tasks')} />
+                <ResultGroup label="Receipts" items={results.expenses.map((r) => ({ id: r.id, label: r.description || r.category || '(no note)', sub: `$${r.amount} · ${r.spent_on}` }))} onGo={() => go('/admin/expenses')} />
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ResultGroup({ label, items, onGo }) {
+  if (!items.length) return null
+  return (
+    <div>
+      <div style={{ padding: '8px 12px', fontSize: 10, fontWeight: 800, color: '#94a3b8', letterSpacing: 1, background: '#fafafa' }}>{label.toUpperCase()}</div>
+      {items.map((it) => (
+        <button key={it.id} onClick={onGo} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 12px', border: 'none', borderBottom: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{it.label}</div>
+          {it.sub && <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{it.sub}</div>}
+        </button>
+      ))}
+    </div>
+  )
 }

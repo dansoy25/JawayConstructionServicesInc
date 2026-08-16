@@ -68,9 +68,13 @@ export default function ClockIn() {
         lat: pos.lat, lng: pos.lng, method: 'GPS', status: 'present',
       }).select().single()
       if (error) throw error
-      // Wipe leftover "done" tasks from previous days so the employee starts fresh.
+      // Wipe leftover "done" tasks from previous days so the employee starts fresh,
+      // then flip every remaining todo task to 'in_progress' (aka Pending) — the
+      // shift automatically starts the work; no manual click required.
       await supabase.from('tasks').delete()
         .eq('assignee_id', profile.id).eq('status', 'done')
+      await supabase.from('tasks').update({ status: 'in_progress' })
+        .eq('assignee_id', profile.id).eq('status', 'todo')
       setToday(data); setMsg('success')
       setTimeout(() => nav('/'), 900)
     } catch (e) { setMsg(e.message) }

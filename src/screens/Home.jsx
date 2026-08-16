@@ -241,22 +241,30 @@ export default function Home() {
             {tasks.slice(0, 5).map((t) => {
               const pri = { urgent: '#dc2626', high: '#dc2626', medium: '#f59e0b', low: '#2563eb' }[t.priority || 'medium'] || '#94a3b8'
               const done = t.status === 'done'
-              // Flow: tasks auto-appear when admin assigns them. No Start click.
-              // Clock-out will auto-mark everything done and enable delete.
-              // Clock-in erases any leftover done tasks so the list stays fresh.
+              const pending = t.status === 'in_progress' // "Pending" once you clock in
+              const waiting = t.status === 'todo'         // Not yet clocked in
+              // Flow: admin assigns → task shows as 'Waiting'.
+              // Employee clocks in → 'Pending'. Employee clocks out → 'Done' (deletable).
+              // Employee never marks tasks manually.
               return (
                 <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: dark ? 'rgba(255,255,255,.03)' : '#f8fafc', borderRadius: 10 }}>
                   <div style={{ width: 4, height: 30, borderRadius: 2, background: done ? '#22c55e' : pri }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: textPrimary, textDecoration: done ? 'line-through' : 'none' }}>{t.title}</div>
                     <div style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>
-                      {done ? 'Completed on clock-out' : (t.due_date ? `Due ${new Date(t.due_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}` : 'Pending — auto-completes on clock-out')}
+                      {done
+                        ? 'Completed on clock-out'
+                        : pending
+                          ? 'Pending — auto-completes when you clock out'
+                          : (t.due_date ? `Waiting · due ${new Date(t.due_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}` : 'Waiting — starts when you clock in')}
                       {' · '}{(t.priority || 'medium').toUpperCase()}
                     </div>
                   </div>
                   {done
                     ? <button onClick={() => removeTask(t)} title="Delete completed task" style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 14, cursor: 'pointer' }}>🗑</button>
-                    : <span style={{ fontSize: 10, fontWeight: 800, color: '#64748b', background: dark ? 'rgba(255,255,255,.06)' : '#e2e8f0', padding: '4px 8px', borderRadius: 999 }}>Pending</span>}
+                    : pending
+                      ? <span style={{ fontSize: 10, fontWeight: 800, color: '#a16207', background: '#FEF3C7', padding: '4px 8px', borderRadius: 999 }}>⏱ Pending</span>
+                      : <span style={{ fontSize: 10, fontWeight: 800, color: '#64748b', background: dark ? 'rgba(255,255,255,.06)' : '#e2e8f0', padding: '4px 8px', borderRadius: 999 }}>Waiting</span>}
                 </div>
               )
             })}
