@@ -30,7 +30,7 @@ export default function AdminAttendance() {
         .eq('org_id', profile.org_id)
         .eq('is_admin', false),
       supabase.from('attendance')
-        .select('*, ot_hours, ot_approved, ot_approved_at, profile:profiles(full_name, avatar_url, position, employee_code, schedule, schedule_days, day_off), site:sites(name, lat, lng)')
+        .select('*, ot_hours, ot_approved, ot_approved_at, profile:profiles(full_name, avatar_url, position, employee_code, schedule, schedule_days, day_off), site:sites!attendance_site_id_fkey(name, lat, lng), out_site:sites!attendance_clock_out_site_id_fkey(name, lat, lng)')
         .eq('org_id', profile.org_id)
         .gte('work_date', addDays(today, -14))
         .order('work_date', { ascending: false })
@@ -253,11 +253,11 @@ export default function AdminAttendance() {
         <table style={table}>
           <thead>
             <tr>
-              {['EMPLOYEE','DATE','TIME IN','TIME OUT','HOURS','OT','STATUS','GPS',''].map((h, i) => <th key={i} style={th}>{h}</th>)}
+              {['EMPLOYEE','DATE','TIME IN','TIME OUT','HOURS','OT','STATUS','IN LOCATION','OUT LOCATION',''].map((h, i) => <th key={i} style={th}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {visibleRows.length === 0 && <tr><td colSpan="9" style={{ ...td, textAlign: 'center', padding: 30, color: '#94a3b8' }}>No records match the current filters.</td></tr>}
+            {visibleRows.length === 0 && <tr><td colSpan="10" style={{ ...td, textAlign: 'center', padding: 30, color: '#94a3b8' }}>No records match the current filters.</td></tr>}
             {visibleRows.map((r) => {
               const schedStart = parseScheduleStart(r.profile?.schedule) || { h: 8, m: 0 }
               const isLate = r.clock_in && (() => {
@@ -305,7 +305,22 @@ export default function AdminAttendance() {
                     ) : <span style={{ color: '#cbd5e1' }}>—</span>}
                   </td>
                   <td style={td}><span style={chip(status.bg, status.color)}>● {status.label}</span></td>
-                  <td style={td}><span style={{ color: '#2563eb', fontWeight: 600, fontSize: 11 }}>📍 {r.site?.name || 'Field'}</span></td>
+                  <td style={td}>
+                    {r.clock_in ? (
+                      <div style={{ fontSize: 11 }}>
+                        <div style={{ color: '#2563eb', fontWeight: 700 }}>📍 {r.site?.name || 'Field'}</div>
+                        {(r.lat && r.lng) && <div style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 9 }}>{Number(r.lat).toFixed(4)}, {Number(r.lng).toFixed(4)}</div>}
+                      </div>
+                    ) : <span style={{ color: '#cbd5e1' }}>—</span>}
+                  </td>
+                  <td style={td}>
+                    {r.clock_out ? (
+                      <div style={{ fontSize: 11 }}>
+                        <div style={{ color: '#15803d', fontWeight: 700 }}>📍 {r.out_site?.name || r.site?.name || 'Field'}</div>
+                        {(r.clock_out_lat && r.clock_out_lng) && <div style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 9 }}>{Number(r.clock_out_lat).toFixed(4)}, {Number(r.clock_out_lng).toFixed(4)}</div>}
+                      </div>
+                    ) : <span style={{ color: '#cbd5e1' }}>—</span>}
+                  </td>
                   <td style={td}>
                     <button
                       title="Edit attendance"

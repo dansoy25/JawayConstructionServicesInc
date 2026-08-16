@@ -68,6 +68,9 @@ export default function ClockIn() {
         lat: pos.lat, lng: pos.lng, method: 'GPS', status: 'present',
       }).select().single()
       if (error) throw error
+      // Wipe leftover "done" tasks from previous days so the employee starts fresh.
+      await supabase.from('tasks').delete()
+        .eq('assignee_id', profile.id).eq('status', 'done')
       setToday(data); setMsg('success')
       setTimeout(() => nav('/'), 900)
     } catch (e) { setMsg(e.message) }
@@ -82,15 +85,16 @@ export default function ClockIn() {
       const hours = hoursBetween(today.clock_in, clockOut)
       const { error } = await supabase.from('attendance').update({
         clock_out: clockOut, clock_out_lat: pos?.lat || null, clock_out_lng: pos?.lng || null,
+        clock_out_site_id: site?.id || null,
         hours: Number(hours.toFixed(2)),
       }).eq('id', today.id)
       if (error) throw error
-      // Auto-complete any of the employee's open (in_progress) tasks on clock-out.
-      // 'todo' tasks aren't auto-closed — they need an explicit Start click first.
+      // Auto-mark EVERY pending task (todo + in_progress) as done on clock-out.
+      // The employee doesn't click "Start" — the shift itself marks work complete.
       await supabase.from('tasks')
         .update({ status: 'done' })
         .eq('assignee_id', profile.id)
-        .eq('status', 'in_progress')
+        .in('status', ['todo', 'in_progress'])
       setMsg('success')
       setTimeout(() => nav('/'), 900)
     } catch (e) { setMsg(e.message) }

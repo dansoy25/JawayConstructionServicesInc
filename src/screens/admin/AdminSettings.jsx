@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { useTheme } from '../../context/ThemeContext'
 import { supabase } from '../../lib/supabase'
 import { card, btnPrimary, btnGhost, PageHeader } from './adminShared'
 
@@ -9,8 +7,6 @@ const TABS = [
   { key: 'company', label: 'Company profile', icon: '🏢' },
   { key: 'payroll', label: 'Payroll settings', icon: '💰' },
   { key: 'attendance', label: 'Attendance settings', icon: '⏱' },
-  { key: 'leave', label: 'Leave settings', icon: '📅' },
-  { key: 'appearance', label: 'Appearance', icon: '🎨' },
   { key: 'privacy', label: 'Data & privacy', icon: '🔒' },
 ]
 
@@ -54,8 +50,6 @@ export default function AdminSettings() {
           {tab === 'company' && <CompanyPanel org={org} settings={settings} onSaved={load} />}
           {tab === 'payroll' && <PayrollPanel settings={settings} orgId={profile?.org_id} onSaved={load} />}
           {tab === 'attendance' && <AttendancePanel settings={settings} orgId={profile?.org_id} onSaved={load} />}
-          {tab === 'leave' && <LeavePanel orgId={profile?.org_id} />}
-          {tab === 'appearance' && <AppearancePanel />}
           {tab === 'privacy' && <PrivacyPanel org={org} />}
         </div>
       </div>
@@ -247,84 +241,6 @@ function AttendancePanel({ settings, orgId, onSaved }) {
         </div>
       </div>
       <SavedRow ok={ok} err={err} busy={busy} save={save} />
-    </>
-  )
-}
-
-// ─── Leave ────────────────────────────────────────────────────────────
-
-function LeavePanel({ orgId }) {
-  const [types, setTypes] = useState([])
-  const nav = useNavigate()
-  const load = () => orgId && supabase.from('leave_types').select('*').eq('org_id', orgId).order('name').then(({ data }) => setTypes(data || []))
-  useEffect(load, [orgId])
-  const goManage = () => nav('/admin/leave')
-
-  return (
-    <>
-      <div style={h1}>Leave settings</div>
-      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 20 }}>Leave types available to employees when submitting requests.</div>
-      <div style={{ display: 'grid', gap: 8 }}>
-        {types.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>No leave types configured.</div>}
-        {types.map((t) => (
-          <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, background: '#f8fafc', borderRadius: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: 12, height: 12, borderRadius: '50%', background: t.color || '#94a3b8' }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{t.name}</span>
-              {t.code && <span style={{ fontSize: 10, color: '#94a3b8', fontFamily: 'monospace' }}>{t.code}</span>}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-        <button onClick={goManage} style={btnPrimary}>Manage leave types →</button>
-      </div>
-    </>
-  )
-}
-
-// ─── Appearance ───────────────────────────────────────────────────────
-
-function AppearancePanel() {
-  const { theme, toggle, accent, setAccent, accents } = useTheme()
-  return (
-    <>
-      <div style={h1}>Appearance</div>
-      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 20 }}>Global accent color and theme mode. Applies across the app.</div>
-
-      <div style={h2}>Accent color</div>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
-        {accents.map((a) => (
-          <button
-            key={a.key}
-            onClick={() => setAccent(a.key)}
-            title={a.label}
-            style={{
-              width: 44, height: 44, borderRadius: '50%',
-              background: a.color,
-              border: accent === a.key ? '3px solid #0f172a' : '1px solid #e2e8f0',
-              boxShadow: accent === a.key ? `0 0 0 3px ${a.color}44` : 'none',
-              cursor: 'pointer',
-            }}
-          />
-        ))}
-      </div>
-
-      <div style={h2}>Theme mode</div>
-      <div style={{ display: 'flex', gap: 10 }}>
-        {[{ v: 'light', label: '☀ Light' }, { v: 'dark', label: '🌙 Dark' }].map((opt) => (
-          <button
-            key={opt.v}
-            onClick={() => (theme !== opt.v) && toggle()}
-            style={{
-              flex: 1, padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
-              border: theme === opt.v ? '2px solid #2563eb' : '1px solid #e2e8f0',
-              background: theme === opt.v ? '#eff6ff' : '#fff',
-              fontSize: 13, fontWeight: 700, color: '#0f172a',
-            }}
-          >{opt.label}</button>
-        ))}
-      </div>
     </>
   )
 }
