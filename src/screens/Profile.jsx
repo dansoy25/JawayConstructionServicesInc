@@ -76,17 +76,19 @@ export default function Profile() {
           {profile?.avatar_url
             ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : initials(profile?.full_name || 'EM')}
-          {/* Camera badge */}
+          {/* Camera badge — filled camera glyph, larger so it reads at 30px */}
           <span style={{
-            position: 'absolute', bottom: -4, right: -4,
-            width: 26, height: 26, borderRadius: '50%',
-            background: '#fff', color: '#2563eb',
+            position: 'absolute', bottom: -2, right: -2,
+            width: 30, height: 30, borderRadius: '50%',
+            background: 'linear-gradient(135deg,#dc2626,#f97316)', color: '#fff',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 6px rgba(0,0,0,.25)', border: '2px solid #1e3a8a',
+            boxShadow: '0 3px 8px rgba(0,0,0,.35)', border: '2px solid #fff',
           }}>
-            {uploading ? '⋯' : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
+            {uploading ? (
+              <span style={{ fontSize: 12, fontWeight: 900 }}>⋯</span>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M9.4 4l-1.7 2H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3.7l-1.7-2H9.4zM12 9a5 5 0 110 10 5 5 0 010-10zm0 2.2a2.8 2.8 0 100 5.6 2.8 2.8 0 000-5.6z"/>
               </svg>
             )}
           </span>
