@@ -172,12 +172,26 @@ function JawayLogo() {
   const src = `${import.meta.env.BASE_URL}jaway-logo.png`
   if (imgOk) {
     return (
-      <img
-        src={src}
-        alt="Jaway Construction Services"
-        onError={() => setImgOk(false)}
-        style={{ display: 'block', margin: '8px auto 0', width: 72, height: 'auto', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,.4))' }}
-      />
+      <div style={{
+        margin: '10px auto 0',
+        width: 72, height: 72,
+        borderRadius: 16,
+        background: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        // Layered red gradient glow underneath the rounded-square badge.
+        boxShadow:
+          '0 0 0 2px rgba(239,68,68,.35), ' +
+          '0 6px 14px rgba(239,68,68,.55), ' +
+          '0 14px 28px rgba(220,38,38,.35)',
+        overflow: 'hidden',
+      }}>
+        <img
+          src={src}
+          alt="Jaway Construction Services"
+          onError={() => setImgOk(false)}
+          style={{ width: '86%', height: '86%', objectFit: 'contain' }}
+        />
+      </div>
     )
   }
   // SVG fallback — kept tighter and more detailed to mirror the real crest.
