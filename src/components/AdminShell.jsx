@@ -58,20 +58,21 @@ export default function AdminShell() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100dvh', background: 'var(--app-bg, #f8fafc)', fontFamily: "'Inter',system-ui,sans-serif" }}>
-      {/* Sidebar — FIXED ruby-red brand rail (independent of the Customize accent).
-          The logo is white-on-ruby so it stays legible against the deep red. */}
+      {/* Sidebar — tinted by the Customize accent. A dark overlay is layered
+          over var(--accent) so every accent (red/pink/grey/blue/orange) still
+          reads as a deep brand rail regardless of the base hue. */}
       <aside style={{
         width: 240, flexShrink: 0,
-        background: 'linear-gradient(180deg,#7f1d1d 0%,#991b1b 45%,#7f1d1d 100%)',
+        background: 'linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.4)), var(--accent, #7f1d1d)',
         color: '#fff5f5',
         display: 'flex', flexDirection: 'column',
         borderRight: '1px solid rgba(255,255,255,.08)',
         boxShadow: 'inset -1px 0 0 rgba(0,0,0,.15)',
       }}>
-        {/* Brand: title + logo tucked into a cream backdrop so the black+red crest reads on ruby */}
+        {/* Brand: title + logo tucked into a cream backdrop so the black+red crest reads on any accent */}
         <div style={{ padding: '18px 16px 20px', borderBottom: '1px solid rgba(255,255,255,.14)', textAlign: 'center' }}>
           <div style={{ fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: -.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            Jaway Construction <span style={{ color: '#fde68a' }}>Services Inc.</span>
+            Jaway Construction <span style={{ color: '#fff' }}>Services Inc.</span>
           </div>
           <JawayLogo />
           <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: 2, color: 'rgba(255,255,255,.75)', marginTop: 6 }}>BUSINESS OPERATIONS</div>
@@ -81,7 +82,7 @@ export default function AdminShell() {
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 12px' }}>
           {SECTIONS.map((section) => (
             <div key={section.label} style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,229,229,.72)', letterSpacing: 1.5, padding: '0 12px 8px' }}>{section.label}</div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,.72)', letterSpacing: 1.5, padding: '0 12px 8px' }}>{section.label}</div>
               {section.items.map((item) => (
                 <NavLink
                   key={item.to}
@@ -90,10 +91,10 @@ export default function AdminShell() {
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '10px 12px', borderRadius: 10, marginBottom: 2,
                     textDecoration: 'none',
-                    color: isActive ? '#fff' : 'rgba(255,240,240,.86)',
+                    color: isActive ? '#fff' : 'rgba(255,255,255,.86)',
                     background: isActive ? 'linear-gradient(90deg,rgba(255,255,255,.22),rgba(255,255,255,.06))' : 'transparent',
                     fontSize: 13, fontWeight: isActive ? 800 : 600,
-                    borderLeft: isActive ? '2px solid #fde68a' : '2px solid transparent',
+                    borderLeft: isActive ? '2px solid #fff' : '2px solid transparent',
                   })}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{item.icon}</svg>
@@ -107,14 +108,14 @@ export default function AdminShell() {
         {/* User footer */}
         <div style={{ padding: 12, borderTop: '1px solid rgba(255,255,255,.14)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8 }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#fde68a,#f59e0b)', color: '#7f1d1d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, flexShrink: 0 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#fff', color: 'var(--accent, #7f1d1d)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, flexShrink: 0 }}>
               {initials(profile?.full_name || 'JJ')}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile?.full_name || 'Admin'}</div>
-              <div style={{ fontSize: 10, color: 'rgba(255,229,229,.75)', fontWeight: 600 }}>Owner</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,.75)', fontWeight: 600 }}>Owner</div>
             </div>
-            <button onClick={doSignOut} title="Sign out" style={{ background: 'none', border: 'none', color: 'rgba(255,229,229,.85)', cursor: 'pointer', padding: 6, borderRadius: 6 }}>
+            <button onClick={doSignOut} title="Sign out" style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,.85)', cursor: 'pointer', padding: 6, borderRadius: 6 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             </button>
           </div>

@@ -1,6 +1,6 @@
 export const card = { background: '#fff', borderRadius: 14, padding: 20, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }
 export const table = { width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 12 }
-export const th = { textAlign: 'left', padding: '10px 14px', background: '#2563eb', color: '#fff', fontSize: 10, fontWeight: 800, letterSpacing: .5 }
+export const th = { textAlign: 'left', padding: '10px 14px', background: 'var(--accent, #2563eb)', color: '#fff', fontSize: 10, fontWeight: 800, letterSpacing: .5 }
 export const td = { padding: '12px 14px', borderBottom: '1px solid #f1f5f9', color: '#334155', fontSize: 12 }
 // Primary button pulls its color from the Customize accent (ThemeContext sets
 // --accent on <html>). Falls back to blue only if the CSS var isn't wired.

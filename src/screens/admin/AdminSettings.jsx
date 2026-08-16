@@ -28,7 +28,7 @@ export default function AdminSettings() {
       <PageHeader title="Settings" sub="Configure your workspace" />
 
       <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16, alignItems: 'flex-start' }}>
-        <div style={{ background: 'linear-gradient(180deg,#1e40af,#1e3a8a)', color: '#fff', borderRadius: 14, padding: 16 }}>
+        <div style={{ background: 'linear-gradient(180deg, rgba(0,0,0,.12), rgba(0,0,0,.35)), var(--accent, #1e40af)', color: '#fff', borderRadius: 14, padding: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 800 }}>Settings</div>
           <div style={{ fontSize: 11, opacity: .8, marginBottom: 16 }}>Manage your workspace</div>
           {TABS.map((t) => (
@@ -36,7 +36,7 @@ export default function AdminSettings() {
               display: 'flex', alignItems: 'center', gap: 10, width: '100%',
               padding: '10px 12px', borderRadius: 10, marginBottom: 4,
               background: tab === t.key ? '#fff' : 'transparent',
-              color: tab === t.key ? '#2563eb' : '#e2e8f0',
+              color: tab === t.key ? 'var(--accent, #2563eb)' : '#e2e8f0',
               border: 'none', cursor: 'pointer',
               fontSize: 12, fontWeight: tab === t.key ? 700 : 600, textAlign: 'left',
             }}>
