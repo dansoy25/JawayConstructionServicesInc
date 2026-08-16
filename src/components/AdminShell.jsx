@@ -58,21 +58,21 @@ export default function AdminShell() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100dvh', background: 'var(--app-bg, #f8fafc)', fontFamily: "'Inter',system-ui,sans-serif" }}>
-      {/* Sidebar */}
+      {/* Sidebar — light blue-slate palette so the black+red Jaway crest reads clearly */}
       <aside style={{
         width: 240, flexShrink: 0,
-        background: 'linear-gradient(180deg,#0d1528 0%,#0b1220 100%)',
-        color: '#e2e8f0',
+        background: 'linear-gradient(180deg,#eff6ff 0%,#dbeafe 100%)',
+        color: '#0f172a',
         display: 'flex', flexDirection: 'column',
-        borderRight: '1px solid rgba(255,255,255,.04)',
+        borderRight: '1px solid #bfdbfe',
       }}>
         {/* Brand: one-line title + inline Jaway construction logo */}
-        <div style={{ padding: '18px 16px 20px', borderBottom: '1px solid rgba(255,255,255,.04)', textAlign: 'center' }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: -.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            Jaway Construction <span style={{ color: '#ef4444' }}>Services Inc.</span>
+        <div style={{ padding: '18px 16px 20px', borderBottom: '1px solid rgba(37,99,235,.14)', textAlign: 'center' }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: '#0f172a', letterSpacing: -.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            Jaway Construction <span style={{ color: '#dc2626' }}>Services Inc.</span>
           </div>
           <JawayLogo />
-          <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: 2, color: '#94a3b8', marginTop: 6 }}>BUSINESS OPERATIONS</div>
+          <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: 2, color: '#475569', marginTop: 6 }}>BUSINESS OPERATIONS</div>
         </div>
 
         {/* Nav */}
@@ -88,10 +88,10 @@ export default function AdminShell() {
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '10px 12px', borderRadius: 10, marginBottom: 2,
                     textDecoration: 'none',
-                    color: isActive ? '#60a5fa' : '#94a3b8',
-                    background: isActive ? 'linear-gradient(90deg,rgba(37,99,235,.18),rgba(37,99,235,.06))' : 'transparent',
-                    fontSize: 13, fontWeight: isActive ? 700 : 500,
-                    borderLeft: isActive ? '2px solid #3b82f6' : '2px solid transparent',
+                    color: isActive ? '#1e40af' : '#334155',
+                    background: isActive ? 'linear-gradient(90deg,rgba(37,99,235,.20),rgba(37,99,235,.06))' : 'transparent',
+                    fontSize: 13, fontWeight: isActive ? 700 : 600,
+                    borderLeft: isActive ? '2px solid #2563eb' : '2px solid transparent',
                   })}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{item.icon}</svg>
@@ -103,16 +103,16 @@ export default function AdminShell() {
         </div>
 
         {/* User footer */}
-        <div style={{ padding: 12, borderTop: '1px solid rgba(255,255,255,.04)' }}>
+        <div style={{ padding: 12, borderTop: '1px solid rgba(37,99,235,.14)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8 }}>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#2563eb,#0ea5e9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, flexShrink: 0 }}>
               {initials(profile?.full_name || 'JJ')}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile?.full_name || 'Admin'}</div>
-              <div style={{ fontSize: 10, color: '#64748b' }}>Owner</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile?.full_name || 'Admin'}</div>
+              <div style={{ fontSize: 10, color: '#64748b', fontWeight: 600 }}>Owner</div>
             </div>
-            <button onClick={doSignOut} title="Sign out" style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 6, borderRadius: 6 }}>
+            <button onClick={doSignOut} title="Sign out" style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 6, borderRadius: 6 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             </button>
           </div>
