@@ -175,11 +175,11 @@ export default function AdminAttendance() {
               <button
                 key={v}
                 onClick={() => setView(v)}
-                style={{ padding: '6px 14px', border: 'none', background: view === v ? '#2563eb' : 'transparent', color: view === v ? '#fff' : '#64748b', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                style={{ padding: '6px 14px', border: 'none', background: view === v ? 'var(--accent, #2563eb)' : 'transparent', color: view === v ? '#fff' : '#64748b', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
               >{v === 'table' ? '⊞ Table' : '▦ Map'}</button>
             ))}
           </div>
-          <button onClick={() => setManualOpen(true)} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Manual entry</button>
+          <button onClick={() => setManualOpen(true)} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: 'var(--accent, #2563eb)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Manual entry</button>
           <button onClick={load} style={btnGhost}>↻ Refresh</button>
           <button onClick={doExportCsv} style={btnGhost}>⬇ CSV</button>
           <button onClick={printPage} style={btnGhost}>📄 PDF</button>
@@ -550,7 +550,7 @@ function ManualAttendanceModal({ orgId, employees, sites, onClose, onSaved }) {
           {err && <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>{err}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
             <button type="button" onClick={onClose} style={btnGhost}>Cancel</button>
-            <button type="submit" disabled={busy} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', opacity: busy ? .6 : 1 }}>{busy ? 'Saving…' : 'Add attendance'}</button>
+            <button type="submit" disabled={busy} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: 'var(--accent, #2563eb)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', opacity: busy ? .6 : 1 }}>{busy ? 'Saving…' : 'Add attendance'}</button>
           </div>
         </form>
       </div>
@@ -589,7 +589,7 @@ function ClickableStat({ label, value, sub, accent, active, onClick }) {
 const inputStyle = { padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none', color: '#0f172a', background: '#fff', fontWeight: 600 }
 const selectStyle = { padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, background: '#fff', color: '#334155', fontWeight: 700, cursor: 'pointer', outline: 'none' }
 const ghostBtn = { padding: '10px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', color: '#334155', fontSize: 12, fontWeight: 700, cursor: 'pointer' }
-const primaryBtn = { padding: '10px 16px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }
+const primaryBtn = { padding: '10px 16px', borderRadius: 10, border: 'none', background: 'var(--accent, #2563eb)', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }
 
 // Parse "HH:MM-HH:MM" schedule string into a start time
 function parseScheduleStart(s) {

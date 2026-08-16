@@ -2,7 +2,9 @@ export const card = { background: '#fff', borderRadius: 14, padding: 20, border:
 export const table = { width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 12 }
 export const th = { textAlign: 'left', padding: '10px 14px', background: '#2563eb', color: '#fff', fontSize: 10, fontWeight: 800, letterSpacing: .5 }
 export const td = { padding: '12px 14px', borderBottom: '1px solid #f1f5f9', color: '#334155', fontSize: 12 }
-export const btnPrimary = { padding: '10px 16px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }
+// Primary button pulls its color from the Customize accent (ThemeContext sets
+// --accent on <html>). Falls back to blue only if the CSS var isn't wired.
+export const btnPrimary = { padding: '10px 16px', borderRadius: 10, border: 'none', background: 'var(--accent, #2563eb)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }
 export const btnGhost = { padding: '10px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', color: '#334155', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }
 export const chip = (bg, color) => ({ fontSize: 10, fontWeight: 700, color, background: bg, padding: '3px 10px', borderRadius: 999, display: 'inline-block' })
 
