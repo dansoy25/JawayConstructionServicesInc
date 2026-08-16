@@ -171,27 +171,14 @@ function JawayLogo() {
   const [imgOk, setImgOk] = useState(true)
   const src = `${import.meta.env.BASE_URL}jaway-logo.png`
   if (imgOk) {
+    // No white badge, no gradient — just the transparent logo on the dark sidebar.
     return (
-      <div style={{
-        margin: '10px auto 0',
-        width: 72, height: 72,
-        borderRadius: 16,
-        background: '#fff',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        // Layered red gradient glow underneath the rounded-square badge.
-        boxShadow:
-          '0 0 0 2px rgba(239,68,68,.35), ' +
-          '0 6px 14px rgba(239,68,68,.55), ' +
-          '0 14px 28px rgba(220,38,38,.35)',
-        overflow: 'hidden',
-      }}>
-        <img
-          src={src}
-          alt="Jaway Construction Services"
-          onError={() => setImgOk(false)}
-          style={{ width: '86%', height: '86%', objectFit: 'contain' }}
-        />
-      </div>
+      <img
+        src={src}
+        alt="Jaway Construction Services"
+        onError={() => setImgOk(false)}
+        style={{ display: 'block', margin: '10px auto 0', width: 84, height: 'auto', objectFit: 'contain' }}
+      />
     )
   }
   // SVG fallback — kept tighter and more detailed to mirror the real crest.

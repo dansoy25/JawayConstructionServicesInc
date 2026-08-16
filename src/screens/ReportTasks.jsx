@@ -5,6 +5,9 @@ import { useTheme } from '../context/ThemeContext'
 import { supabase } from '../lib/supabase'
 import { fmtDate } from '../lib/util'
 
+// Employee-facing task list. Read-only — the shift itself flips status
+// (todo→in_progress on clock-in, in_progress→done on clock-out). Employees
+// cannot toggle; they can only delete a completed task from their history.
 export default function ReportTasks() {
   const { profile } = useAuth()
   const { theme } = useTheme()
@@ -24,18 +27,31 @@ export default function ReportTasks() {
   }
   useEffect(() => { load() }, [profile?.id])
 
-  const toggle = async (id, current) => {
-    const next = current === 'done' ? 'todo' : 'done'
-    await supabase.from('tasks').update({ status: next }).eq('id', id)
+  const removeTask = async (id) => {
+    await supabase.from('tasks').delete().eq('id', id)
     load()
   }
 
   const pending = rows.filter((r) => r.status !== 'done')
   const done = rows.filter((r) => r.status === 'done')
 
-  const priorityChip = (p) => {
-    const cfg = { high: { bg: '#FEE2E2', color: '#b91c1c' }, medium: { bg: '#FEF3C7', color: '#a16207' }, low: { bg: '#DBEAFE', color: '#2563eb' } }[p || 'medium']
-    return <span style={{ fontSize: 9, fontWeight: 700, color: cfg.color, background: cfg.bg, padding: '2px 8px', borderRadius: 999 }}>{p || 'medium'}</span>
+  const stateChip = (s) => {
+    if (s === 'in_progress') {
+      return <span style={{ fontSize: 9, fontWeight: 800, color: '#a16207', background: '#FEF3C7', padding: '3px 10px', borderRadius: 999 }}>⏱ Pending</span>
+    }
+    return <span style={{ fontSize: 9, fontWeight: 800, color: '#64748b', background: dark ? 'rgba(255,255,255,.06)' : '#e2e8f0', padding: '3px 10px', borderRadius: 999 }}>Waiting</span>
+  }
+
+  const stateIcon = (s) => {
+    // Fills in for the checkbox — a purely visual status icon, not a button.
+    if (s === 'in_progress') {
+      return (
+        <div style={{ width: 22, height: 22, borderRadius: 6, background: '#FEF3C7', border: '2px solid #f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ width: 8, height: 8, borderRadius: 2, background: '#f59e0b' }} />
+        </div>
+      )
+    }
+    return <div style={{ width: 22, height: 22, borderRadius: 6, border: '2px solid #94a3b8', background: 'transparent', flexShrink: 0 }} />
   }
 
   return (
@@ -48,23 +64,32 @@ export default function ReportTasks() {
         <div style={{ width: 36 }} />
       </div>
 
+      <div style={{ fontSize: 11, color: textMuted, padding: '0 4px 10px', lineHeight: 1.5 }}>
+        These tasks start automatically when you clock in and complete when you clock out. Only the admin can add or remove tasks — you can delete finished tasks from your history below.
+      </div>
+
       <div style={{ marginTop: 4, fontWeight: 800, fontSize: 14, color: textPrimary }}>Recent</div>
       <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {pending.length === 0 && (
           <div style={{ padding: 14, borderRadius: 14, background: cardBg, border: cardBorder, textAlign: 'center', fontSize: 12, color: textMuted }}>No pending tasks.</div>
         )}
         {pending.map((t) => (
-          <div key={t.id} style={{ padding: 12, borderRadius: 14, background: cardBg, border: cardBorder, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={() => toggle(t.id, t.status)} style={{
-              width: 20, height: 20, borderRadius: 6, border: '2px solid #94a3b8', background: 'transparent', cursor: 'pointer', flexShrink: 0,
-            }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>{t.title}</div>
-              <div style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>
+          <div key={t.id} style={{ padding: 12, borderRadius: 14, background: cardBg, border: cardBorder, display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'default' }}>
+            {stateIcon(t.status)}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary }}>{t.title}</div>
+                {stateChip(t.status)}
+              </div>
+              {t.description && (
+                <div style={{ fontSize: 11, color: textPrimary, opacity: .85, marginTop: 6, lineHeight: 1.4, whiteSpace: 'pre-wrap' }}>
+                  {t.description}
+                </div>
+              )}
+              <div style={{ fontSize: 10, color: textMuted, marginTop: 6 }}>
                 {t.due_date ? `Due ${fmtDate(t.due_date)}` : 'No due date'}{t.priority ? ` · ${t.priority} priority` : ''}
               </div>
             </div>
-            {priorityChip(t.priority)}
           </div>
         ))}
       </div>
@@ -73,15 +98,23 @@ export default function ReportTasks() {
         <>
           <div style={{ marginTop: 20, fontWeight: 800, fontSize: 14, color: textPrimary }}>Completed</div>
           <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {done.slice(0, 5).map((t) => (
-              <div key={t.id} style={{ padding: 12, borderRadius: 14, background: cardBg, border: cardBorder, display: 'flex', alignItems: 'center', gap: 12, opacity: .6 }}>
-                <button onClick={() => toggle(t.id, t.status)} style={{
-                  width: 20, height: 20, borderRadius: 6, background: '#22c55e', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
-                }}>
+            {done.slice(0, 10).map((t) => (
+              <div key={t.id} style={{ padding: 12, borderRadius: 14, background: cardBg, border: cardBorder, display: 'flex', alignItems: 'flex-start', gap: 12, opacity: .8 }}>
+                <div style={{ width: 22, height: 22, borderRadius: 6, background: '#22c55e', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                </button>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: textPrimary, textDecoration: 'line-through' }}>{t.title}</div>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: textPrimary, textDecoration: 'line-through' }}>{t.title}</div>
+                    <button
+                      onClick={() => removeTask(t.id)}
+                      title="Delete finished task"
+                      style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 14, cursor: 'pointer' }}
+                    >🗑</button>
+                  </div>
+                  {t.description && (
+                    <div style={{ fontSize: 11, color: textMuted, marginTop: 4, lineHeight: 1.4, whiteSpace: 'pre-wrap' }}>{t.description}</div>
+                  )}
                 </div>
               </div>
             ))}

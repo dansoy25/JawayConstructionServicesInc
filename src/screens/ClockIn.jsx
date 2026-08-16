@@ -71,10 +71,12 @@ export default function ClockIn() {
       // Wipe leftover "done" tasks from previous days so the employee starts fresh,
       // then flip every remaining todo task to 'in_progress' (aka Pending) — the
       // shift automatically starts the work; no manual click required.
-      await supabase.from('tasks').delete()
+      const delRes = await supabase.from('tasks').delete()
         .eq('assignee_id', profile.id).eq('status', 'done')
-      await supabase.from('tasks').update({ status: 'in_progress' })
+      if (delRes.error) console.warn('[clock-in] task cleanup failed:', delRes.error.message)
+      const updRes = await supabase.from('tasks').update({ status: 'in_progress' })
         .eq('assignee_id', profile.id).eq('status', 'todo')
+      if (updRes.error) console.warn('[clock-in] task activate failed:', updRes.error.message)
       setToday(data); setMsg('success')
       setTimeout(() => nav('/'), 900)
     } catch (e) { setMsg(e.message) }
@@ -95,10 +97,11 @@ export default function ClockIn() {
       if (error) throw error
       // Auto-mark EVERY pending task (todo + in_progress) as done on clock-out.
       // The employee doesn't click "Start" — the shift itself marks work complete.
-      await supabase.from('tasks')
+      const doneRes = await supabase.from('tasks')
         .update({ status: 'done' })
         .eq('assignee_id', profile.id)
         .in('status', ['todo', 'in_progress'])
+      if (doneRes.error) console.warn('[clock-out] task complete failed:', doneRes.error.message)
       setMsg('success')
       setTimeout(() => nav('/'), 900)
     } catch (e) { setMsg(e.message) }

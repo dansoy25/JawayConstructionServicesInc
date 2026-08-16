@@ -204,11 +204,24 @@ function CreateTaskModal({ orgId, createdBy, employees, defaultStatus, onClose, 
     if (!title.trim()) { setErr('Title is required.'); return }
     setBusy(true); setErr('')
     try {
+      // If the assignee is currently on duty, land the task as Pending
+      // right away — the employee shouldn't see 'Waiting' when they're
+      // already clocked in for the day.
+      let initialStatus = status
+      if (assigneeId && status === 'todo') {
+        const today = new Date().toISOString().slice(0, 10)
+        const { data: att } = await supabase.from('attendance')
+          .select('clock_in, clock_out')
+          .eq('profile_id', assigneeId)
+          .eq('work_date', today)
+          .maybeSingle()
+        if (att?.clock_in && !att?.clock_out) initialStatus = 'in_progress'
+      }
       const { error } = await supabase.from('tasks').insert({
         org_id: orgId,
         title: title.trim(),
         description: description.trim() || null,
-        priority, status,
+        priority, status: initialStatus,
         assignee_id: assigneeId || null,
         due_date: dueDate || null,
         created_by: createdBy || null,
