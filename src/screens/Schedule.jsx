@@ -3,12 +3,23 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { supabase } from '../lib/supabase'
 
+// Saskatchewan-local YYYY-MM-DD for a Date. Using en-CA + timeZone always
+// gives ISO-order date; safer than d.toISOString() which is UTC.
+const skISO = (d) => d.toLocaleDateString('en-CA', { timeZone: 'America/Regina' })
+// Weekday index (0=Sun..6=Sat) in Saskatchewan time regardless of the browser TZ.
+const skDow = (d) => {
+  const s = d.toLocaleDateString('en-US', { timeZone: 'America/Regina', weekday: 'short' })
+  return ({ Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 })[s] ?? d.getDay()
+}
+// Day-of-month number in Saskatchewan time.
+const skDay = (d) => Number(d.toLocaleDateString('en-CA', { timeZone: 'America/Regina', day: 'numeric' }))
+
 export default function Schedule() {
   const { profile, site } = useAuth()
   const { theme } = useTheme()
   const dark = theme === 'dark'
   const today = new Date()
-  const [selected, setSelected] = useState(today.toISOString().slice(0, 10))
+  const [selected, setSelected] = useState(skISO(today))
   const [shifts, setShifts] = useState([])
 
   const bg = dark ? 'linear-gradient(180deg,#0d1528,#111827)' : 'linear-gradient(180deg,#f1f5f9,#ffffff)'
@@ -17,10 +28,16 @@ export default function Schedule() {
   const textPrimary = dark ? '#e2e8f0' : '#334155'
   const textMuted = dark ? '#94a3b8' : '#64748b'
 
-  // 14-day picker
+  // 14-day picker — all keys/labels derived from Saskatchewan time so the
+  // selected pill's date matches the header label.
   const days = Array.from({ length: 14 }).map((_, i) => {
     const d = new Date(); d.setDate(d.getDate() + i)
-    return { iso: d.toISOString().slice(0, 10), d, day: d.toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'short' }), num: d.getDate() }
+    return {
+      iso: skISO(d),
+      d,
+      day: d.toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'short' }),
+      num: skDay(d),
+    }
   })
 
   // Compute working-day vs day-off from the profile — NOT hardcoded Sat/Sun.
@@ -32,7 +49,7 @@ export default function Schedule() {
   const dayOffSet = parseDows(profile?.day_off, [0, 6])
   // Explicit rule: a day is a work day iff it's in the admin-set schedule_days list.
   // Anything else — days off, days not scheduled — reads as "Day off" in the UI.
-  const isDayOff = (d) => !workDaySet.has(d.getDay())
+  const isDayOff = (d) => !workDaySet.has(skDow(d))
   const nextWorkDay = (from) => {
     for (let i = 1; i < 14; i++) {
       const d = new Date(from); d.setDate(d.getDate() + i)
@@ -43,7 +60,7 @@ export default function Schedule() {
 
   useEffect(() => {
     if (!profile?.org_id) return
-    const d = new Date(selected)
+    const d = new Date(`${selected}T12:00:00`)
     if (isDayOff(d)) return setShifts([])
 
     // Read the employee's own schedule from profile ("HH:MM-HH:MM"),
@@ -66,7 +83,8 @@ export default function Schedule() {
     ])
   }, [selected, profile?.org_id, profile?.schedule, site?.name])
 
-  const selectedDate = new Date(selected)
+  // Anchor to noon of the picked date so any TZ jitter still stays inside the same day.
+  const selectedDate = new Date(`${selected}T12:00:00`)
   const selectedIsDayOff = isDayOff(selectedDate)
 
   return (

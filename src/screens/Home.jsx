@@ -16,6 +16,7 @@ export default function Home() {
   const [unreadNotifs, setUnreadNotifs] = useState(0)
   const [todayAtt, setTodayAtt] = useState(null)          // today's attendance row with sites joined
   const [assignedSites, setAssignedSites] = useState([])  // every site this employee can clock in at
+  const [locOpen, setLocOpen] = useState(false)           // collapse the Locations detail panel by default
 
   const refresh = async () => {
     if (!profile?.id) return
@@ -49,6 +50,9 @@ export default function Home() {
 
   const openTasks = tasks.filter((t) => t.status !== 'done')
   const removeTask = async (t) => {
+    // Deletable for any state so employees can clear storage on their own.
+    // Prompt for confirmation only when the task hasn't finished yet.
+    if (t.status !== 'done' && !confirm(`Delete "${t.title}"? This can't be undone.`)) return
     await supabase.from('tasks').delete().eq('id', t.id)
     refresh()
   }
@@ -200,17 +204,27 @@ export default function Home() {
         <QuickTile to="/reports" gradient="linear-gradient(145deg,#d7f7d0,#7CD671)" color="#14532d" iconColor="#16a34a" label="Reports" icon={<><path d="M3 3h18v4H3zM3 10h18v11H3z"/></>} />
       </div>
 
-      {/* Locations card */}
-      <Link to="/reports/locations" style={{ textDecoration: 'none', background: cardBg, borderRadius: 16, padding: '10px 12px', border: dark ? '1px solid rgba(255,255,255,.1)' : '1px solid rgba(255,255,255,.1)', display: 'flex', alignItems: 'center', gap: 12, marginTop: 20, boxShadow: '0 4px 12px rgba(0,0,0,.15)' }}>
+      {/* Locations — compact by default; tap to expand with clock in/out + assigned sites */}
+      <button
+        onClick={() => setLocOpen((v) => !v)}
+        style={{
+          width: '100%', textDecoration: 'none', background: cardBg, borderRadius: 16, padding: '10px 12px',
+          border: cardBorder, display: 'flex', alignItems: 'center', gap: 12, marginTop: 20,
+          boxShadow: '0 4px 12px rgba(0,0,0,.15)', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+        }}
+      >
         <div style={{ width: 30, height: 30, borderRadius: 9, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/></svg>
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: textPrimary }}>Locations</div>
-          <div style={{ fontSize: 10, color: textMuted }}>{site?.name || 'Main Office'} · Last verified today</div>
+          <div style={{ fontSize: 10, color: textMuted }}>
+            {todayAtt?.in_site?.name ? `Clocked in at ${todayAtt.in_site.name}` : `${assignedSites.length} site${assignedSites.length === 1 ? '' : 's'} assigned`}
+            {' · tap to '}{locOpen ? 'hide' : 'view'}
+          </div>
         </div>
-        <div style={{ color: textMuted, fontSize: 14 }}>›</div>
-      </Link>
+        <div style={{ color: textMuted, fontSize: 14, transform: locOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</div>
+      </button>
 
       {/* Today's schedule — real per-employee data */}
       <div style={{ marginTop: 10, background: cardBg, border: cardBorder, borderRadius: 16, padding: '10px 12px', boxShadow: '0 4px 12px rgba(0,0,0,.15)' }}>
@@ -245,8 +259,9 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Locations — today's clock in/out sites + all assigned sites */}
-      <div style={{ marginTop: 12, background: cardBg, border: cardBorder, borderRadius: 16, padding: '12px', boxShadow: '0 4px 12px rgba(0,0,0,.15)' }}>
+      {/* Detailed Locations panel — only visible when the compact tile above is tapped */}
+      {locOpen && (
+      <div style={{ marginTop: 10, background: cardBg, border: cardBorder, borderRadius: 16, padding: '12px', boxShadow: '0 4px 12px rgba(0,0,0,.15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <div style={{ fontWeight: 800, fontSize: 13, color: textPrimary }}>Locations</div>
           <span style={{ fontSize: 10, color: textMuted, fontWeight: 700 }}>{assignedSites.length} site{assignedSites.length === 1 ? '' : 's'} assigned</span>
@@ -285,6 +300,7 @@ export default function Home() {
           </div>
         )}
       </div>
+      )}
 
       {/* Tasks from admin */}
       <div style={{ marginTop: 12, background: cardBg, border: cardBorder, borderRadius: 16, padding: '12px', boxShadow: '0 4px 12px rgba(0,0,0,.15)' }}>
@@ -338,11 +354,11 @@ export default function Home() {
                         {' · '}{(t.priority || 'medium').toUpperCase()}
                       </div>
                     </div>
-                    {done && (
-                      <button onClick={() => removeTask(t)} title="Delete completed task"
-                        style={{ background: '#fff', border: '1px solid #FCA5A5', color: '#dc2626', fontSize: 12, fontWeight: 800, borderRadius: 8, padding: '4px 8px', cursor: 'pointer', flexShrink: 0 }}
-                      >🗑</button>
-                    )}
+                    <button
+                      onClick={() => removeTask(t)}
+                      title={done ? 'Delete completed task' : 'Delete task from your list'}
+                      style={{ background: '#fff', border: '1px solid #FCA5A5', color: '#dc2626', fontSize: 12, fontWeight: 800, borderRadius: 8, padding: '4px 8px', cursor: 'pointer', flexShrink: 0 }}
+                    >🗑</button>
                   </div>
                 </div>
               )
