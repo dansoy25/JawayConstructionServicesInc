@@ -133,10 +133,7 @@ export default function AdminShell() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <TopbarSearch />
-            <button style={{ ...iconBtn, position: 'relative' }} onClick={() => nav('/admin/leave')} title="Pending leave requests">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
-              <span style={{ position: 'absolute', top: 6, right: 7, width: 6, height: 6, background: '#ef4444', borderRadius: '50%' }} />
-            </button>
+            <TopbarBell />
             <button
               onClick={() => nav('/admin/profile')}
               title="Your admin profile"
@@ -170,6 +167,37 @@ const iconBtn = {
 // Small inline SVG rendition of the Jaway Construction Services logo.
 // If a real PNG is dropped at /public/jaway-logo.png we render that instead —
 // the deploy already handles the fallback if the fetch fails.
+// Bell button in the admin topbar. Shows the real unread notification count
+// for the current admin and jumps to /admin/notifications.
+function TopbarBell() {
+  const [unread, setUnread] = useState(0)
+  const { profile } = useAuth()
+  const nav = useNavigate()
+
+  useEffect(() => {
+    if (!profile?.id) return
+    let alive = true
+    const fetchCount = () => {
+      supabase.from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('profile_id', profile.id).is('read_at', null)
+        .then(({ count }) => { if (alive) setUnread(count || 0) })
+    }
+    fetchCount()
+    const t = setInterval(fetchCount, 60000)
+    return () => { alive = false; clearInterval(t) }
+  }, [profile?.id])
+
+  return (
+    <button style={{ ...iconBtn, position: 'relative' }} onClick={() => nav('/admin/notifications')} title="Notifications">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+      {unread > 0 && (
+        <span style={{ position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16, padding: '0 4px', background: '#ef4444', color: '#fff', border: '1.5px solid #fff', borderRadius: 999, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unread > 9 ? '9+' : unread}</span>
+      )}
+    </button>
+  )
+}
+
 function JawayLogo() {
   const [imgOk, setImgOk] = useState(true)
   const src = `${import.meta.env.BASE_URL}jaway-logo.png`

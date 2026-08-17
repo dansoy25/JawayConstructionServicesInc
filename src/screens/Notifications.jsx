@@ -8,12 +8,13 @@ import { fmtDate, fmtTime } from '../lib/util'
 
 // Icon + label for each notification kind we insert from the code base.
 const KIND_META = {
-  task_assigned:     { icon: '📋', label: 'New task assigned',      tone: '#2563eb' },
-  payslip_sent:      { icon: '💰', label: 'Payslip ready',           tone: '#16a34a' },
-  payslip_requested: { icon: '📨', label: 'Payslip request',         tone: '#f59e0b' },
-  leave_decision:    { icon: '📅', label: 'Leave update',            tone: '#a855f7' },
-  ot_approved:       { icon: '⏱',  label: 'Overtime approved',       tone: '#f97316' },
-  default:           { icon: '🔔', label: 'Notification',             tone: '#64748b' },
+  task_assigned:            { icon: '📋', label: 'New task assigned',        tone: '#2563eb' },
+  payslip_sent:             { icon: '💰', label: 'Payslip ready',             tone: '#16a34a' },
+  payslip_requested:        { icon: '📨', label: 'Payslip request',           tone: '#f59e0b' },
+  password_reset_request:   { icon: '🔒', label: 'Password reset request',    tone: '#dc2626' },
+  leave_decision:           { icon: '📅', label: 'Leave update',              tone: '#a855f7' },
+  ot_approved:              { icon: '⏱',  label: 'Overtime approved',         tone: '#f97316' },
+  default:                  { icon: '🔔', label: 'Notification',               tone: '#64748b' },
 }
 
 export default function Notifications() {
