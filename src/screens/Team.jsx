@@ -11,6 +11,7 @@ export default function Team() {
   const dark = theme === 'dark'
   const [members, setMembers] = useState([])
   const [onDutyIds, setOnDutyIds] = useState(new Set())
+  const [dutiesById, setDutiesById] = useState({}) // profile_id -> [siteNames]
 
   const bg = dark ? 'linear-gradient(180deg,#0d1528,#111827)' : 'linear-gradient(180deg,#f1f5f9,#ffffff)'
   const cardBg = dark ? 'linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.03))' : 'linear-gradient(145deg,#ffffff 0%,#f0f9ff 100%)'
@@ -40,6 +41,21 @@ export default function Team() {
         .eq('org_id', profile.org_id)
         .eq('work_date', manilaToday())
       setOnDutyIds(new Set((att || []).filter((r) => !r.clock_out).map((r) => r.profile_id)))
+
+      // Duties = each teammate's assigned worksite names.
+      const ids = (ppl || []).map((p) => p.id)
+      if (ids.length) {
+        const { data: assigns } = await supabase
+          .from('site_assignments')
+          .select('profile_id, site:sites(name)')
+          .in('profile_id', ids)
+        const map = {}
+        for (const a of assigns || []) {
+          if (!a.site?.name) continue
+          ;(map[a.profile_id] ||= []).push(a.site.name)
+        }
+        setDutiesById(map)
+      }
     })()
   }, [profile?.org_id, profile?.site_id])
 
@@ -73,17 +89,31 @@ export default function Team() {
         )}
         {members.map((m) => {
           const onDuty = onDutyIds.has(m.id)
+          const duties = dutiesById[m.id] || []
           return (
-            <div key={m.id} style={{ padding: 12, borderRadius: 14, background: cardBg, border: cardBorder, display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 2px 6px rgba(15,23,42,.05)' }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg,#2563eb,#0ea5e9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, overflow: 'hidden' }}>
+            <div key={m.id} style={{ padding: 12, borderRadius: 14, background: cardBg, border: cardBorder, display: 'flex', alignItems: 'flex-start', gap: 12, boxShadow: '0 2px 6px rgba(15,23,42,.05)' }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#2563eb,#0ea5e9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 13, overflow: 'hidden', flexShrink: 0 }}>
                 {m.avatar_url ? <img src={m.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(m.full_name)}
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: textPrimary }}>{m.full_name}</div>
-                <div style={{ fontSize: 10, color: textMuted, marginTop: 1 }}>{m.position || 'Employee'}</div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: onDuty ? '#22c55e' : '#94a3b8' }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: textPrimary }}>{m.full_name}</div>
+                  <span style={{
+                    fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 999,
+                    color: onDuty ? '#15803d' : textMuted,
+                    background: onDuty ? '#DCFCE7' : (dark ? 'rgba(255,255,255,.06)' : '#f1f5f9'),
+                  }}>{onDuty ? '● On duty' : 'Off'}</span>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: dark ? '#93c5fd' : '#2563eb', marginTop: 2 }}>
+                  {m.position || 'Employee'}
+                </div>
+                {duties.length > 0 && (
+                  <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {duties.map((d, i) => (
+                      <span key={i} style={{ fontSize: 9, fontWeight: 700, color: dark ? '#e2e8f0' : '#334155', background: dark ? 'rgba(255,255,255,.06)' : '#f1f5f9', padding: '2px 7px', borderRadius: 999 }}>📍 {d}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )

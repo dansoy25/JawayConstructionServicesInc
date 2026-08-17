@@ -91,8 +91,22 @@ export default function Payslip() {
       org_id: profile.org_id, profile_id: profile.id,
       period_start: monthStart, period_end: monthEnd,
     })
-    if (error) setReqMsg(error.message)
-    else { setReqMsg('Request sent to admin.'); load() }
+    if (error) { setReqMsg(error.message); setRequesting(false); return }
+    // Notify every admin in this org that a request came in.
+    const { data: admins } = await supabase.from('profiles').select('id').eq('org_id', profile.org_id).eq('is_admin', true)
+    if (admins?.length) {
+      await supabase.from('notifications').insert(admins.map((a) => ({
+        org_id: profile.org_id,
+        profile_id: a.id,
+        type: 'payslip_requested',
+        title: 'Payslip requested',
+        message: `${profile.full_name || 'An employee'} requested a payslip`,
+        actor_id: profile.id,
+        actor_name: profile.full_name || null,
+        link_to: '/admin/payslips',
+      })))
+    }
+    setReqMsg('Request sent to admin.'); load()
     setRequesting(false)
   }
 

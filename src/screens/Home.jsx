@@ -5,18 +5,33 @@ import { useTheme } from '../context/ThemeContext'
 import { supabase } from '../lib/supabase'
 import { manilaToday, fmtTime, hoursBetween, initials } from '../lib/util'
 
+// Load helpers moved out so the render below stays clean.
+
 export default function Home() {
   const { profile, site } = useAuth()
   const { theme, toggle } = useTheme()
   const dark = theme === 'dark'
   const [today, setToday] = useState(null)
   const [tasks, setTasks] = useState([])
+  const [unreadNotifs, setUnreadNotifs] = useState(0)
+  const [todayAtt, setTodayAtt] = useState(null)          // today's attendance row with sites joined
+  const [assignedSites, setAssignedSites] = useState([])  // every site this employee can clock in at
 
   const refresh = async () => {
     if (!profile?.id) return
     const d = manilaToday()
     const { data } = await supabase.from('attendance').select('*').eq('profile_id', profile.id).eq('work_date', d).maybeSingle()
     setToday(data)
+    // Enriched today row for the Locations card (in-site + out-site names).
+    const { data: attFull } = await supabase.from('attendance')
+      .select('*, in_site:sites!attendance_site_id_fkey(name), out_site:sites!attendance_clock_out_site_id_fkey(name)')
+      .eq('profile_id', profile.id).eq('work_date', d).maybeSingle()
+    setTodayAtt(attFull || null)
+    // Every site assigned to this employee.
+    const { data: assigns } = await supabase.from('site_assignments')
+      .select('site:sites(id, name)')
+      .eq('profile_id', profile.id)
+    setAssignedSites((assigns || []).map((a) => a.site).filter(Boolean))
     // Tasks assigned to this employee, newest-first, unfinished on top.
     const { data: taskRows } = await supabase.from('tasks')
       .select('id, title, description, status, priority, due_date, created_at')
@@ -24,6 +39,11 @@ export default function Home() {
       .order('created_at', { ascending: false })
       .limit(20)
     setTasks(taskRows || [])
+    // Count unread notifications so the bell shows a badge.
+    const { count } = await supabase.from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('profile_id', profile.id).is('read_at', null)
+    setUnreadNotifs(count || 0)
   }
   useEffect(() => { refresh() }, [profile?.id])
 
@@ -80,7 +100,9 @@ export default function Home() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Link to="/notifications" style={{ textDecoration: 'none', width: 38, height: 38, borderRadius: 12, border: dark ? '1px solid rgba(255,255,255,.1)' : '1px solid #e2e8f0', background: dark ? 'rgba(255,255,255,.04)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', boxShadow: '0 2px 6px rgba(15,23,42,.06)' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={dark ? '#94a3b8' : '#334155'} strokeWidth="2" strokeLinecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
-            <span style={{ position: 'absolute', top: 8, right: 9, width: 7, height: 7, background: '#ef4444', border: '1.5px solid #fff', borderRadius: '50%' }} />
+            {unreadNotifs > 0 && (
+              <span style={{ position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, padding: '0 4px', background: '#ef4444', color: '#fff', border: '1.5px solid #fff', borderRadius: 999, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unreadNotifs > 9 ? '9+' : unreadNotifs}</span>
+            )}
           </Link>
           <button onClick={toggle} title="Switch theme" style={{ position: 'relative', width: 66, height: 38, borderRadius: 19, border: dark ? '1px solid rgba(255,255,255,.08)' : '1px solid #e2e8f0', background: dark ? 'rgba(255,255,255,.04)' : '#f1f5f9', padding: 0, cursor: 'pointer', boxShadow: 'inset 0 1px 3px rgba(15,23,42,.06)' }}>
             <div style={{ position: 'absolute', top: 3, [dark ? 'left' : 'right']: 3, width: 30, height: 30, borderRadius: '50%', background: dark ? 'linear-gradient(135deg,#1e293b,#0f172a)' : 'linear-gradient(135deg,#fbbf24,#f59e0b)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: dark ? '0 3px 10px rgba(59,130,246,.35)' : '0 3px 8px rgba(245,158,11,.45)', transition: 'all .2s' }}>
@@ -223,6 +245,47 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Locations — today's clock in/out sites + all assigned sites */}
+      <div style={{ marginTop: 12, background: cardBg, border: cardBorder, borderRadius: 16, padding: '12px', boxShadow: '0 4px 12px rgba(0,0,0,.15)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ fontWeight: 800, fontSize: 13, color: textPrimary }}>Locations</div>
+          <span style={{ fontSize: 10, color: textMuted, fontWeight: 700 }}>{assignedSites.length} site{assignedSites.length === 1 ? '' : 's'} assigned</span>
+        </div>
+        {/* Today */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: assignedSites.length ? 12 : 0 }}>
+          <LocPill
+            label="TODAY · CLOCK IN"
+            site={todayAtt?.in_site?.name}
+            time={todayAtt?.clock_in ? fmtTime(todayAtt.clock_in) : null}
+            color="#16a34a"
+            dark={dark} textPrimary={textPrimary} textMuted={textMuted}
+          />
+          <LocPill
+            label="TODAY · CLOCK OUT"
+            site={todayAtt?.out_site?.name}
+            time={todayAtt?.clock_out ? fmtTime(todayAtt.clock_out) : null}
+            color="#dc2626"
+            dark={dark} textPrimary={textPrimary} textMuted={textMuted}
+          />
+        </div>
+        {/* Assigned */}
+        {assignedSites.length > 0 && (
+          <>
+            <div style={{ fontSize: 9, fontWeight: 800, color: textMuted, letterSpacing: .7, marginBottom: 6 }}>ASSIGNED SITES</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {assignedSites.map((s) => (
+                <span key={s.id} style={{ fontSize: 10, fontWeight: 800, color: dark ? '#e2e8f0' : '#0f172a', background: dark ? 'rgba(255,255,255,.06)' : '#f1f5f9', padding: '4px 10px', borderRadius: 999 }}>📍 {s.name}</span>
+              ))}
+            </div>
+          </>
+        )}
+        {assignedSites.length === 0 && (
+          <div style={{ fontSize: 11, color: textMuted, textAlign: 'center', padding: '8px 0' }}>
+            No sites assigned yet. Ask your admin to link you to a worksite in the GPS page.
+          </div>
+        )}
+      </div>
+
       {/* Tasks from admin */}
       <div style={{ marginTop: 12, background: cardBg, border: cardBorder, borderRadius: 16, padding: '12px', boxShadow: '0 4px 12px rgba(0,0,0,.15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -243,30 +306,44 @@ export default function Home() {
             {tasks.slice(0, 5).map((t) => {
               const pri = { urgent: '#dc2626', high: '#dc2626', medium: '#f59e0b', low: '#2563eb' }[t.priority || 'medium'] || '#94a3b8'
               const done = t.status === 'done'
-              const pending = t.status === 'in_progress' // "Pending" once you clock in
-              const waiting = t.status === 'todo'         // Not yet clocked in
-              // Flow: admin assigns → task shows as 'Waiting'.
-              // Employee clocks in → 'Pending'. Employee clocks out → 'Done' (deletable).
-              // Employee never marks tasks manually.
+              const pending = t.status === 'in_progress'
+              const chipCfg = done
+                ? { bg: '#DCFCE7', color: '#15803d', text: '✓ Done' }
+                : pending
+                  ? { bg: '#FEF3C7', color: '#a16207', text: '⏱ Pending' }
+                  : { bg: dark ? 'rgba(255,255,255,.06)' : '#e2e8f0', color: '#64748b', text: 'Waiting' }
               return (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: dark ? 'rgba(255,255,255,.03)' : '#f8fafc', borderRadius: 10 }}>
-                  <div style={{ width: 4, height: 30, borderRadius: 2, background: done ? '#22c55e' : pri }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: textPrimary, textDecoration: done ? 'line-through' : 'none' }}>{t.title}</div>
-                    <div style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>
-                      {done
-                        ? 'Completed on clock-out'
-                        : pending
-                          ? 'Pending — auto-completes when you clock out'
-                          : (t.due_date ? `Waiting · due ${new Date(t.due_date).toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'short', day: 'numeric' })}` : 'Waiting — starts when you clock in')}
-                      {' · '}{(t.priority || 'medium').toUpperCase()}
+                <div key={t.id} style={{
+                  padding: 12, borderRadius: 12,
+                  background: dark ? 'rgba(255,255,255,.03)' : '#f8fafc',
+                  border: `1px solid ${done ? '#86efac' : pending ? '#fcd34d' : (dark ? 'rgba(255,255,255,.06)' : '#e2e8f0')}`,
+                  position: 'relative',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <div style={{ width: 4, alignSelf: 'stretch', borderRadius: 2, background: done ? '#22c55e' : pri, minHeight: 34 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: textPrimary, textDecoration: done ? 'line-through' : 'none' }}>{t.title}</div>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: chipCfg.color, background: chipCfg.bg, padding: '3px 8px', borderRadius: 999, flexShrink: 0 }}>{chipCfg.text}</span>
+                      </div>
+                      {t.description && (
+                        <div style={{ fontSize: 11, color: textMuted, marginTop: 4, lineHeight: 1.35, whiteSpace: 'pre-wrap' }}>{t.description}</div>
+                      )}
+                      <div style={{ fontSize: 10, color: textMuted, marginTop: 6 }}>
+                        {done
+                          ? 'Completed on clock-out'
+                          : pending
+                            ? 'Auto-completes when you clock out'
+                            : (t.due_date ? `Due ${new Date(t.due_date).toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'short', day: 'numeric' })}` : 'Starts when you clock in')}
+                        {' · '}{(t.priority || 'medium').toUpperCase()}
+                      </div>
                     </div>
+                    {done && (
+                      <button onClick={() => removeTask(t)} title="Delete completed task"
+                        style={{ background: '#fff', border: '1px solid #FCA5A5', color: '#dc2626', fontSize: 12, fontWeight: 800, borderRadius: 8, padding: '4px 8px', cursor: 'pointer', flexShrink: 0 }}
+                      >🗑</button>
+                    )}
                   </div>
-                  {done
-                    ? <button onClick={() => removeTask(t)} title="Delete completed task" style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 14, cursor: 'pointer' }}>🗑</button>
-                    : pending
-                      ? <span style={{ fontSize: 10, fontWeight: 800, color: '#a16207', background: '#FEF3C7', padding: '4px 8px', borderRadius: 999 }}>⏱ Pending</span>
-                      : <span style={{ fontSize: 10, fontWeight: 800, color: '#64748b', background: dark ? 'rgba(255,255,255,.06)' : '#e2e8f0', padding: '4px 8px', borderRadius: 999 }}>Waiting</span>}
                 </div>
               )
             })}
@@ -278,6 +355,23 @@ export default function Home() {
       </div>
 
       <div style={{ height: 20 }} />
+    </div>
+  )
+}
+
+function LocPill({ label, site, time, color, dark, textPrimary, textMuted }) {
+  const empty = !site && !time
+  return (
+    <div style={{
+      padding: 10, borderRadius: 12,
+      background: dark ? 'rgba(255,255,255,.04)' : '#f8fafc',
+      border: `1px solid ${empty ? (dark ? 'rgba(148,163,184,.15)' : '#e2e8f0') : color}`,
+    }}>
+      <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: .6, color: empty ? textMuted : color }}>{label}</div>
+      <div style={{ fontSize: 12, fontWeight: 800, color: textPrimary, marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {site ? `📍 ${site}` : '—'}
+      </div>
+      <div style={{ fontSize: 10, color: textMuted, marginTop: 2, fontFamily: 'monospace' }}>{time || 'not yet'}</div>
     </div>
   )
 }

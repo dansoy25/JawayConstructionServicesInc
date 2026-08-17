@@ -30,7 +30,16 @@ export default function Schedule() {
   }
   const workDaySet = parseDows(profile?.schedule_days, [1, 2, 3, 4, 5])
   const dayOffSet = parseDows(profile?.day_off, [0, 6])
-  const isDayOff = (d) => dayOffSet.has(d.getDay()) || !workDaySet.has(d.getDay())
+  // Explicit rule: a day is a work day iff it's in the admin-set schedule_days list.
+  // Anything else — days off, days not scheduled — reads as "Day off" in the UI.
+  const isDayOff = (d) => !workDaySet.has(d.getDay())
+  const nextWorkDay = (from) => {
+    for (let i = 1; i < 14; i++) {
+      const d = new Date(from); d.setDate(d.getDate() + i)
+      if (!isDayOff(d)) return d
+    }
+    return null
+  }
 
   useEffect(() => {
     if (!profile?.org_id) return
@@ -65,6 +74,28 @@ export default function Schedule() {
       <div style={{ padding: '16px 4px' }}>
         <div style={{ fontSize: 10, color: textMuted, fontWeight: 600, letterSpacing: .4 }}>{today.toLocaleDateString('en-CA', { timeZone: 'America/Regina', month: 'long', year: 'numeric' }).toUpperCase()}</div>
         <div style={{ fontSize: 20, fontWeight: 800, color: textPrimary }}>My Schedule</div>
+      </div>
+
+      {/* Weekly overview — mirrors the admin's assigned work_days/day_off */}
+      <div style={{ padding: 12, borderRadius: 14, background: cardBg, border: cardBorder, marginBottom: 12 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: textMuted, letterSpacing: 1, marginBottom: 8 }}>WEEKLY PATTERN · SET BY ADMIN</div>
+        <div style={{ display: 'flex', gap: 4, justifyContent: 'space-between' }}>
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((abbr, i) => {
+            const off = !workDaySet.has(i)
+            return (
+              <div key={i} style={{
+                flex: 1, textAlign: 'center', padding: '8px 0', borderRadius: 10,
+                background: off ? 'rgba(220,38,38,.12)' : 'rgba(34,197,94,.14)',
+                color: off ? '#dc2626' : '#16a34a',
+                fontSize: 11, fontWeight: 800,
+                border: `1px solid ${off ? 'rgba(220,38,38,.28)' : 'rgba(34,197,94,.28)'}`,
+              }}>
+                <div>{abbr}</div>
+                <div style={{ fontSize: 8, marginTop: 2, opacity: .75, letterSpacing: .5 }}>{off ? 'OFF' : 'WORK'}</div>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* 14-day scroller — horizontally swipeable */}
@@ -120,10 +151,23 @@ export default function Schedule() {
       </div>
 
       {selectedIsDayOff ? (
-        <div style={{ marginTop: 12, padding: 20, borderRadius: 18, background: 'linear-gradient(135deg,#1e40af,#2563eb)', color: '#fff', textAlign: 'center' }}>
-          <div style={{ fontSize: 12, opacity: .85, fontWeight: 600 }}>{selectedDate.toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'long', month: 'long', day: 'numeric' })}</div>
-          <div style={{ fontSize: 32, fontWeight: 900, marginTop: 6 }}>Day off</div>
-        </div>
+        (() => {
+          const nxt = nextWorkDay(selectedDate)
+          return (
+            <div style={{ marginTop: 12, padding: 22, borderRadius: 18, background: 'linear-gradient(135deg,#7c2d12,#dc2626)', color: '#fff', textAlign: 'center', boxShadow: '0 12px 28px rgba(220,38,38,.35)' }}>
+              <div style={{ fontSize: 12, opacity: .85, fontWeight: 700, letterSpacing: 1 }}>{selectedDate.toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'long', month: 'long', day: 'numeric' })}</div>
+              <div style={{ fontSize: 34, fontWeight: 900, marginTop: 6, letterSpacing: -.5 }}>Day off</div>
+              <div style={{ fontSize: 11, opacity: .9, marginTop: 6 }}>
+                Set by your admin. Enjoy the break.
+              </div>
+              {nxt && (
+                <div style={{ marginTop: 12, display: 'inline-block', background: 'rgba(255,255,255,.15)', padding: '6px 12px', borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+                  Next shift: {nxt.toLocaleDateString('en-CA', { timeZone: 'America/Regina', weekday: 'short', month: 'short', day: 'numeric' })}
+                </div>
+              )}
+            </div>
+          )
+        })()
       ) : (
         <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {shifts.map((s) => (

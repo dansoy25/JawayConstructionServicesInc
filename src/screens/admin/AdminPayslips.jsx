@@ -72,6 +72,17 @@ export default function AdminPayslips() {
     await supabase.from('payslip_requests')
       .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString(), fulfilled_by: profile?.id })
       .eq('org_id', profile.org_id).eq('profile_id', empId).eq('status', 'pending')
+    // Notify the employee their payslip is ready.
+    await supabase.from('notifications').insert({
+      org_id: profile.org_id,
+      profile_id: empId,
+      type: 'payslip_sent',
+      title: 'Payslip ready',
+      message: 'Your admin sent you a new payslip',
+      actor_id: profile?.id,
+      actor_name: profile?.full_name || null,
+      link_to: '/payslip',
+    })
     load()
   }
 

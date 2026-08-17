@@ -227,6 +227,18 @@ function CreateTaskModal({ orgId, createdBy, employees, defaultStatus, onClose, 
         created_by: createdBy || null,
       })
       if (error) throw error
+      // Notify the assignee about the new task.
+      if (assigneeId) {
+        await supabase.from('notifications').insert({
+          org_id: orgId,
+          profile_id: assigneeId,
+          type: 'task_assigned',
+          title: 'New task assigned',
+          message: title.trim(),
+          body: description.trim() || null,
+          link_to: '/reports/tasks',
+        })
+      }
       onCreated()
     } catch (e) { setErr(e.message || 'Create failed.') }
     setBusy(false)
